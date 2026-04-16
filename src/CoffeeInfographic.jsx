@@ -998,10 +998,44 @@ export default function CoffeeInfographic() {
         {/* Footer */}
         <div style={{
           textAlign: "center", marginTop: 40,
-          fontSize: 9.5, color: "#3A2A14",
-          letterSpacing: "0.2em", textTransform: "uppercase",
+          display: "flex", flexDirection: "column", gap: 10,
         }}>
-          Scores are illustrative averages across origins and processing methods
+          <div style={{
+            fontSize: 9.5, color: "#3A2A14",
+            letterSpacing: "0.2em", textTransform: "uppercase",
+          }}>
+            Scores are illustrative averages across origins and processing methods
+          </div>
+          <div style={{
+            fontSize: 10, color: COLORS.sub,
+            fontFamily: "Georgia, serif", letterSpacing: "0.06em",
+            display: "flex", justifyContent: "center", alignItems: "center",
+            gap: 12, flexWrap: "wrap",
+          }}>
+            <span>made with ☕❤️ by @neilkod</span>
+            <span style={{ color: "#3A2A14" }}>·</span>
+            <a href="mailto:nkodner@gmail.com" style={{
+              color: COLORS.sub, textDecoration: "none",
+              borderBottom: `1px solid ${COLORS.sub}55`,
+              paddingBottom: 1, transition: "color 0.2s",
+            }}
+              onMouseEnter={e => e.target.style.color = COLORS.label}
+              onMouseLeave={e => e.target.style.color = COLORS.sub}
+            >
+              nkodner@gmail.com
+            </a>
+            <span style={{ color: "#3A2A14" }}>·</span>
+            <a href="https://github.com/neilkod/coffee-flavor-map" target="_blank" rel="noreferrer" style={{
+              color: COLORS.sub, textDecoration: "none",
+              borderBottom: `1px solid ${COLORS.sub}55`,
+              paddingBottom: 1, transition: "color 0.2s",
+            }}
+              onMouseEnter={e => e.target.style.color = COLORS.label}
+              onMouseLeave={e => e.target.style.color = COLORS.sub}
+            >
+              github
+            </a>
+          </div>
         </div>
       </div>
     </div>
