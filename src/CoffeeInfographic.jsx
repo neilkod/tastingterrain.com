@@ -346,7 +346,7 @@ function CoffeeCard({ coffee, index, activePopoverDim, onDotClick, onClosePopove
     >
       <div style={{ textAlign: "center" }}>
         <div style={{
-          fontSize: 9.5, letterSpacing: "0.22em", color: COLORS.sub,
+          fontSize: 11, letterSpacing: "0.22em", color: COLORS.sub,
           textTransform: "uppercase", marginBottom: 3,
         }}>
           {coffee.region}
@@ -367,7 +367,7 @@ function CoffeeCard({ coffee, index, activePopoverDim, onDotClick, onClosePopove
       />
 
       <div style={{
-        fontSize: 9, color: COLORS.sub, fontStyle: "italic",
+        fontSize: 11, color: COLORS.sub, fontStyle: "italic",
         fontFamily: "Georgia, serif", textAlign: "center",
         lineHeight: 1.5, letterSpacing: "0.03em",
       }}>
@@ -375,16 +375,16 @@ function CoffeeCard({ coffee, index, activePopoverDim, onDotClick, onClosePopove
       </div>
 
       {/* Score bars */}
-      <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 3, marginTop: 2 }}>
+      <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 4, marginTop: 2 }}>
         {DIMS.map((d, i) => (
           <div key={d} style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <div style={{
-              fontSize: 7.5, color: DIM_COLORS[i], width: 32,
-              flexShrink: 0, letterSpacing: "0.05em", opacity: 0.85,
+              fontSize: 10, color: DIM_COLORS[i], width: 36,
+              flexShrink: 0, letterSpacing: "0.04em", opacity: 0.85,
             }}>
-              {d.slice(0, 5)}
+              {d}
             </div>
-            <div style={{ flex: 1, height: 3, background: "#2A1A08", borderRadius: 2, overflow: "hidden" }}>
+            <div style={{ flex: 1, height: 2, background: "#2A1A08", borderRadius: 2, overflow: "hidden" }}>
               <div style={{
                 height: "100%",
                 width: `${coffee.scores[i] * 10}%`,
@@ -394,7 +394,7 @@ function CoffeeCard({ coffee, index, activePopoverDim, onDotClick, onClosePopove
               }} />
             </div>
             <div style={{
-              fontSize: 7.5, color: DIM_COLORS[i], width: 14,
+              fontSize: 10, color: DIM_COLORS[i], width: 18,
               textAlign: "right", opacity: 0.7,
             }}>
               {coffee.scores[i]}
