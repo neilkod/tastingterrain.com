@@ -802,7 +802,7 @@ function HeatmapView({ coffees, sortDim, onDimClick, sortDir }) {
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "center",
-                gap: 2,
+                gap: 3,
               }}
             >
               <div style={{
@@ -817,6 +817,13 @@ function HeatmapView({ coffees, sortDim, onDimClick, sortDir }) {
                 letterSpacing: "0.15em", textTransform: "uppercase",
               }}>
                 {coffee.region}
+              </div>
+              <div style={{
+                fontSize: 9, color: COLORS.sub,
+                fontStyle: "italic", fontFamily: "Georgia, serif",
+                letterSpacing: "0.02em", lineHeight: 1.4, opacity: 0.8,
+              }}>
+                {coffee.note}
               </div>
             </div>
 
@@ -880,103 +887,6 @@ function HeatmapView({ coffees, sortDim, onDimClick, sortDir }) {
           anchorRect={tooltip.anchorRect}
         />
       )}
-    </div>
-  );
-}
-
-// ─── Data View ────────────────────────────────────────────────────────────────
-
-function DataView({ coffees, sortDim, sortDir, onDimClick }) {
-  return (
-    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-      <table style={{
-        width: "100%", minWidth: 560, borderCollapse: "collapse",
-        fontFamily: "Georgia, serif",
-      }}>
-        <thead>
-          <tr>
-            {["Origin", "Region", ...DIMS, "Tasting Notes"].map((col, ci) => {
-              const dimIdx = ci - 2;
-              const isDim = ci >= 2 && ci <= 7;
-              const active = isDim && sortDim === dimIdx;
-              return (
-                <th
-                  key={col}
-                  onClick={isDim ? () => onDimClick(dimIdx) : undefined}
-                  style={{
-                    padding: "8px 10px",
-                    textAlign: isDim ? "center" : "left",
-                    fontSize: 9,
-                    letterSpacing: "0.16em",
-                    textTransform: "uppercase",
-                    color: isDim ? DIM_COLORS[dimIdx] : COLORS.sub,
-                    opacity: isDim ? (active ? 1 : 0.75) : 1,
-                    borderBottom: `1px solid ${COLORS.cardBorder}`,
-                    cursor: isDim ? "pointer" : "default",
-                    userSelect: "none",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {isDim
-                    ? `${col}${active ? (sortDir === "desc" ? " ↓" : " ↑") : ""}`
-                    : col}
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-        <tbody>
-          {coffees.map((coffee, ri) => (
-            <tr
-              key={coffee.name}
-              style={{ background: ri % 2 === 0 ? "transparent" : "#1C1108" }}
-            >
-              <td style={{
-                padding: "9px 10px",
-                fontSize: 12, color: "#F0DEB8",
-                letterSpacing: "0.03em",
-                borderBottom: `1px solid ${COLORS.cardBorder}`,
-                whiteSpace: "nowrap",
-              }}>
-                {coffee.name}
-              </td>
-              <td style={{
-                padding: "9px 10px",
-                fontSize: 9.5, color: COLORS.sub,
-                letterSpacing: "0.12em", textTransform: "uppercase",
-                borderBottom: `1px solid ${COLORS.cardBorder}`,
-                whiteSpace: "nowrap",
-              }}>
-                {coffee.region}
-              </td>
-              {coffee.scores.map((score, si) => (
-                <td
-                  key={si}
-                  style={{
-                    padding: "9px 10px",
-                    textAlign: "center",
-                    fontSize: 12,
-                    color: score >= 7 ? DIM_COLORS[si] : score >= 5 ? COLORS.label : COLORS.sub,
-                    fontWeight: score >= 8 ? "bold" : "normal",
-                    borderBottom: `1px solid ${COLORS.cardBorder}`,
-                    opacity: score < 4 ? 0.5 : 1,
-                  }}
-                >
-                  {score}
-                </td>
-              ))}
-              <td style={{
-                padding: "9px 10px",
-                fontSize: 9.5, color: COLORS.sub,
-                fontStyle: "italic", letterSpacing: "0.03em",
-                borderBottom: `1px solid ${COLORS.cardBorder}`,
-              }}>
-                {coffee.note}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
@@ -1338,14 +1248,14 @@ export default function CoffeeInfographic() {
           display: "flex", justifyContent: "center", gap: 0,
           marginBottom: 24,
         }}>
-          {["cards", "heatmap", "tags", "data"].map((v, idx) => (
+          {["cards", "heatmap", "tags"].map((v, idx) => (
             <button
               key={v}
               onClick={() => setView(v)}
               style={{
                 background: "none",
                 border: `1px solid ${view === v ? COLORS.gridOuter : COLORS.cardBorder}`,
-                borderRadius: idx === 0 ? "4px 0 0 4px" : idx === 3 ? "0 4px 4px 0" : "0",
+                borderRadius: idx === 0 ? "4px 0 0 4px" : idx === 2 ? "0 4px 4px 0" : "0",
                 padding: "5px 18px",
                 color: view === v ? "#F0DEB8" : COLORS.sub,
                 fontSize: 10,
@@ -1395,15 +1305,6 @@ export default function CoffeeInfographic() {
         {/* Tag index */}
         {view === "tags" && <TagView />}
 
-        {/* Raw data */}
-        {view === "data" && (
-          <DataView
-            coffees={sortedCoffees}
-            sortDim={sortDim}
-            sortDir={sortDir}
-            onDimClick={handleDimClick}
-          />
-        )}
 
         {/* Footer */}
         <div style={{
