@@ -470,7 +470,7 @@ export default function CoffeeInfographic() {
         fontFamily: "Georgia, 'Times New Roman', serif",
         padding: "40px 24px 56px",
         position: "relative",
-        overflow: "hidden",
+        overflowX: "hidden",
       }}
     >
       <style>{`
@@ -505,6 +505,22 @@ export default function CoffeeInfographic() {
         }
         .radar-dot-group:hover .radar-dot {
           filter: brightness(1.25);
+        }
+        .coffee-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+          transition: opacity 0.15s ease;
+        }
+        @media (max-width: 700px) {
+          .coffee-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+        @media (min-width: 701px) and (max-width: 960px) {
+          .coffee-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
         }
       `}</style>
 
@@ -581,12 +597,7 @@ export default function CoffeeInfographic() {
         </div>
 
         {/* Grid */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 16,
-          transition: "opacity 0.15s ease",
-        }}>
+        <div className="coffee-grid">
           {sortedCoffees.map((coffee, i) => (
             <CoffeeCard
               key={coffee.name}
