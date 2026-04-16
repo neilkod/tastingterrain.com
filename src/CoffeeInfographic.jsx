@@ -439,80 +439,232 @@ const TAG_INDEX = DIMS.map((_, dimIdx) => {
   return Array.from(map.entries()).sort((a, b) => b[1].length - a[1].length);
 });
 
+// ─── Chip Radar Tooltip ───────────────────────────────────────────────────────
+
+function ChipTooltip({ coffee, anchorRect, onClose }) {
+  const TOOLTIP_WIDTH = 190;
+  const isMobile = window.innerWidth < 640;
+
+  if (isMobile) {
+    return (
+      <>
+        <div
+          onClick={onClose}
+          style={{
+            position: "fixed", inset: 0,
+            zIndex: 299, background: "rgba(0,0,0,0.55)",
+          }}
+        />
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "fixed",
+            bottom: 0, left: 0, right: 0,
+            zIndex: 300,
+            background: "#1F1409",
+            borderTop: `1px solid ${COLORS.gridOuter}`,
+            borderRadius: "12px 12px 0 0",
+            padding: "16px 20px 36px",
+            boxShadow: "0 -8px 32px rgba(0,0,0,0.7)",
+            fontFamily: "Georgia, serif",
+            animation: "slideUp 0.2s ease both",
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+          }}
+        >
+          <button
+            onClick={onClose}
+            style={{
+              alignSelf: "flex-end", background: "none", border: "none",
+              color: COLORS.sub, fontSize: 18, cursor: "pointer",
+              fontFamily: "Georgia, serif", lineHeight: 1, marginBottom: 4,
+            }}
+          >×</button>
+          <ChipTooltipContent coffee={coffee} />
+        </div>
+      </>
+    );
+  }
+
+  // Desktop: fixed card anchored near the chip, clamped to viewport
+  const approxHeight = 260;
+  const spaceBelow = window.innerHeight - anchorRect.bottom;
+  const top = spaceBelow > approxHeight + 12
+    ? anchorRect.bottom + 8
+    : anchorRect.top - approxHeight - 8;
+  const rawLeft = anchorRect.left + anchorRect.width / 2 - TOOLTIP_WIDTH / 2;
+  const left = Math.max(8, Math.min(rawLeft, window.innerWidth - TOOLTIP_WIDTH - 8));
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top, left,
+        width: TOOLTIP_WIDTH,
+        zIndex: 300,
+        background: "#1F1409",
+        border: `1px solid ${COLORS.gridOuter}55`,
+        borderRadius: 8,
+        padding: "12px 12px 10px",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
+        fontFamily: "Georgia, serif",
+        animation: "popoverIn 0.15s ease both",
+        pointerEvents: "none",
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+      }}
+    >
+      <ChipTooltipContent coffee={coffee} />
+    </div>
+  );
+}
+
+function ChipTooltipContent({ coffee }) {
+  return (
+    <>
+      <div style={{ textAlign: "center" }}>
+        <div style={{
+          fontSize: 9, color: COLORS.sub,
+          letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 2,
+        }}>
+          {coffee.region}
+        </div>
+        <div style={{
+          fontSize: 14, color: "#F0DEB8",
+          letterSpacing: "0.04em", lineHeight: 1.2,
+        }}>
+          {coffee.name}
+        </div>
+      </div>
+      <RadarChart scores={coffee.scores} size={130} onDotClick={() => {}} activeDim={null} />
+      <div style={{
+        fontSize: 9.5, color: COLORS.sub, fontStyle: "italic",
+        textAlign: "center", lineHeight: 1.5, letterSpacing: "0.03em",
+      }}>
+        {coffee.note}
+      </div>
+    </>
+  );
+}
+
 // ─── Tag View ─────────────────────────────────────────────────────────────────
 
 function TagView() {
-  return (
-    <div className="tag-grid">
-      {DIMS.map((dim, i) => (
-        <div
-          key={dim}
-          style={{
-            background: COLORS.cardBg,
-            border: `1px solid ${COLORS.cardBorder}`,
-            borderRadius: 8,
-            padding: "16px 16px 18px",
-          }}
-        >
-          {/* Section header */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: 8,
-            marginBottom: 14, paddingBottom: 10,
-            borderBottom: `1px solid ${DIM_COLORS[i]}33`,
-          }}>
-            <div style={{
-              width: 8, height: 8, borderRadius: "50%",
-              background: DIM_COLORS[i], flexShrink: 0,
-            }} />
-            <span style={{
-              fontSize: 11, color: DIM_COLORS[i],
-              letterSpacing: "0.18em", textTransform: "uppercase",
-            }}>
-              {dim}
-            </span>
-            <span style={{
-              fontSize: 9, color: COLORS.sub, fontStyle: "italic",
-              fontFamily: "Georgia, serif", marginLeft: "auto",
-              letterSpacing: "0.03em",
-            }}>
-              {DIM_DESCS[i]}
-            </span>
-          </div>
+  const [activeChip, setActiveChip] = useState(null);
+  // { coffee, anchorRect }
 
-          {/* Tag rows */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {TAG_INDEX[i].map(([tag, tagCoffees]) => (
-              <div key={tag}>
-                <div style={{
-                  fontSize: 10.5, color: DIM_COLORS[i],
-                  fontFamily: "Georgia, serif", letterSpacing: "0.04em",
-                  marginBottom: 5, opacity: 0.95,
-                }}>
-                  {tag}
+  useEffect(() => {
+    if (!activeChip) return;
+    function onDocClick() { setActiveChip(null); }
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, [activeChip]);
+
+  function handleChipEnter(e, coffee) {
+    if (window.innerWidth >= 640) {
+      setActiveChip({ coffee, anchorRect: e.currentTarget.getBoundingClientRect() });
+    }
+  }
+
+  function handleChipClick(e, coffee) {
+    e.stopPropagation();
+    if (window.innerWidth < 640) {
+      setActiveChip((prev) =>
+        prev?.coffee.name === coffee.name ? null : { coffee, anchorRect: e.currentTarget.getBoundingClientRect() }
+      );
+    }
+  }
+
+  return (
+    <>
+      <div className="tag-grid">
+        {DIMS.map((dim, i) => (
+          <div
+            key={dim}
+            style={{
+              background: COLORS.cardBg,
+              border: `1px solid ${COLORS.cardBorder}`,
+              borderRadius: 8,
+              padding: "16px 16px 18px",
+            }}
+          >
+            {/* Section header */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8,
+              marginBottom: 14, paddingBottom: 10,
+              borderBottom: `1px solid ${DIM_COLORS[i]}33`,
+            }}>
+              <div style={{
+                width: 8, height: 8, borderRadius: "50%",
+                background: DIM_COLORS[i], flexShrink: 0,
+              }} />
+              <span style={{
+                fontSize: 11, color: DIM_COLORS[i],
+                letterSpacing: "0.18em", textTransform: "uppercase",
+              }}>
+                {dim}
+              </span>
+              <span style={{
+                fontSize: 9, color: COLORS.sub, fontStyle: "italic",
+                fontFamily: "Georgia, serif", marginLeft: "auto",
+                letterSpacing: "0.03em",
+              }}>
+                {DIM_DESCS[i]}
+              </span>
+            </div>
+
+            {/* Tag rows */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {TAG_INDEX[i].map(([tag, tagCoffees]) => (
+                <div key={tag}>
+                  <div style={{
+                    fontSize: 10.5, color: DIM_COLORS[i],
+                    fontFamily: "Georgia, serif", letterSpacing: "0.04em",
+                    marginBottom: 5, opacity: 0.95,
+                  }}>
+                    {tag}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {tagCoffees.map((c) => {
+                      const isActive = activeChip?.coffee.name === c.name;
+                      return (
+                        <span
+                          key={c.name}
+                          onMouseEnter={(e) => handleChipEnter(e, c)}
+                          onMouseLeave={() => setActiveChip(null)}
+                          onClick={(e) => handleChipClick(e, c)}
+                          style={{
+                            fontSize: 9.5,
+                            color: isActive ? "#F0DEB8" : COLORS.label,
+                            background: isActive ? `${DIM_COLORS[i]}35` : `${DIM_COLORS[i]}18`,
+                            border: `1px solid ${isActive ? DIM_COLORS[i] : DIM_COLORS[i] + "33"}`,
+                            borderRadius: 12,
+                            padding: "2px 9px",
+                            fontFamily: "Georgia, serif",
+                            letterSpacing: "0.03em",
+                            whiteSpace: "nowrap",
+                            cursor: "pointer",
+                            transition: "all 0.15s",
+                          }}
+                        >
+                          {c.name}
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                  {tagCoffees.map((c) => (
-                    <span key={c.name} style={{
-                      fontSize: 9.5,
-                      color: COLORS.label,
-                      background: `${DIM_COLORS[i]}18`,
-                      border: `1px solid ${DIM_COLORS[i]}33`,
-                      borderRadius: 12,
-                      padding: "2px 9px",
-                      fontFamily: "Georgia, serif",
-                      letterSpacing: "0.03em",
-                      whiteSpace: "nowrap",
-                    }}>
-                      {c.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+
+      {activeChip && (
+        <ChipTooltip
+          coffee={activeChip.coffee}
+          anchorRect={activeChip.anchorRect}
+          onClose={() => setActiveChip(null)}
+        />
+      )}
+    </>
   );
 }
 
