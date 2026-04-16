@@ -423,11 +423,128 @@ function CoffeeCard({ coffee, index, activePopoverDim, onDotClick, onClosePopove
   );
 }
 
+// ─── Heatmap View ────────────────────────────────────────────────────────────
+
+function HeatmapView({ coffees, sortDim, onDimClick, sortDir }) {
+  return (
+    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "1fr repeat(6, minmax(44px, 60px))",
+        minWidth: 360,
+        gap: 2,
+      }}>
+        {/* Header row */}
+        <div style={{ padding: "6px 8px" }} />
+        {DIMS.map((d, i) => {
+          const active = sortDim === i;
+          return (
+            <div
+              key={d}
+              onClick={() => onDimClick(i)}
+              style={{
+                padding: "8px 4px 6px",
+                textAlign: "center",
+                cursor: "pointer",
+                borderRadius: 4,
+                userSelect: "none",
+              }}
+            >
+              <div style={{
+                fontSize: 9.5,
+                color: DIM_COLORS[i],
+                letterSpacing: "0.08em",
+                opacity: active ? 1 : 0.75,
+                borderBottom: active ? `1px solid ${DIM_COLORS[i]}` : "1px solid transparent",
+                paddingBottom: 2,
+                transition: "opacity 0.2s",
+                display: "inline-block",
+              }}>
+                {d}{active ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Data rows */}
+        {coffees.map((coffee, rowIndex) => (
+          <>
+            {/* Name cell */}
+            <div
+              key={coffee.name + "-label"}
+              style={{
+                padding: "10px 10px 10px 4px",
+                borderTop: `1px solid ${COLORS.cardBorder}`,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                gap: 2,
+              }}
+            >
+              <div style={{
+                fontSize: 12, color: "#F0DEB8",
+                fontFamily: "Georgia, serif", letterSpacing: "0.03em",
+                lineHeight: 1.2,
+              }}>
+                {coffee.name}
+              </div>
+              <div style={{
+                fontSize: 9, color: COLORS.sub,
+                letterSpacing: "0.15em", textTransform: "uppercase",
+              }}>
+                {coffee.region}
+              </div>
+            </div>
+
+            {/* Score cells */}
+            {coffee.scores.map((score, i) => (
+              <div
+                key={coffee.name + "-" + i}
+                style={{
+                  position: "relative",
+                  borderTop: `1px solid ${COLORS.cardBorder}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 3,
+                  overflow: "hidden",
+                  minHeight: 44,
+                }}
+              >
+                {/* Color fill */}
+                <div style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: DIM_COLORS[i],
+                  opacity: 0.06 + (score / 10) * 0.74,
+                  transition: "opacity 0.3s",
+                }} />
+                {/* Score */}
+                <span style={{
+                  position: "relative",
+                  zIndex: 1,
+                  fontSize: 12,
+                  fontFamily: "Georgia, serif",
+                  color: score >= 6 ? "#F0DEB8" : COLORS.sub,
+                  opacity: 0.9,
+                }}>
+                  {score}
+                </span>
+              </div>
+            ))}
+          </>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Root Component ───────────────────────────────────────────────────────────
 
 export default function CoffeeInfographic() {
   const [sortDim, setSortDim] = useState(null);
   const [sortDir, setSortDir] = useState("desc");
+  const [view, setView] = useState("cards");
   // { coffeeName: string, dimIndex: number } | null
   const [activePopover, setActivePopover] = useState(null);
 
@@ -623,23 +740,63 @@ export default function CoffeeInfographic() {
           </div>
         </div>
 
-        {/* Grid */}
-        <div className="coffee-grid">
-          {sortedCoffees.map((coffee, i) => (
-            <CoffeeCard
-              key={coffee.name}
-              coffee={coffee}
-              index={i}
-              activePopoverDim={
-                activePopover?.coffeeName === coffee.name
-                  ? activePopover.dimIndex
-                  : null
-              }
-              onDotClick={(dimIndex) => handleDotClick(coffee.name, dimIndex)}
-              onClosePopover={() => setActivePopover(null)}
-            />
+        {/* View toggle */}
+        <div style={{
+          display: "flex", justifyContent: "center", gap: 0,
+          marginBottom: 24,
+        }}>
+          {["cards", "heatmap"].map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              style={{
+                background: "none",
+                border: `1px solid ${view === v ? COLORS.gridOuter : COLORS.cardBorder}`,
+                borderRadius: v === "cards" ? "4px 0 0 4px" : "0 4px 4px 0",
+                padding: "5px 18px",
+                color: view === v ? "#F0DEB8" : COLORS.sub,
+                fontSize: 10,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+                fontFamily: "Georgia, serif",
+                transition: "all 0.2s",
+              }}
+            >
+              {v}
+            </button>
           ))}
         </div>
+
+        {/* Cards grid */}
+        {view === "cards" && (
+          <div className="coffee-grid">
+            {sortedCoffees.map((coffee, i) => (
+              <CoffeeCard
+                key={coffee.name}
+                coffee={coffee}
+                index={i}
+                activePopoverDim={
+                  activePopover?.coffeeName === coffee.name
+                    ? activePopover.dimIndex
+                    : null
+                }
+                onDotClick={(dimIndex) => handleDotClick(coffee.name, dimIndex)}
+                onClosePopover={() => setActivePopover(null)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Heatmap */}
+        {view === "heatmap" && (
+          <HeatmapView
+            coffees={sortedCoffees}
+            sortDim={sortDim}
+            sortDir={sortDir}
+            onDimClick={handleDimClick}
+          />
+        )}
 
         {/* Footer */}
         <div style={{
