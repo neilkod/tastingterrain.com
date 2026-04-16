@@ -810,11 +810,17 @@ function HeatmapTooltip({ coffee, dimIndex, anchorRect }) {
   const color = DIM_COLORS[dimIndex];
   const highlight = coffee.highlights[dimIndex];
   const TOOLTIP_WIDTH = 220;
+  const APPROX_HEIGHT = 160;
+  const viewW = document.documentElement.clientWidth;
 
-  // Position below the cell, clamped to viewport edges
-  const top = anchorRect.bottom + 8;
+  // Flip above if not enough space below
+  const spaceBelow = window.innerHeight - anchorRect.bottom;
+  const top = spaceBelow > APPROX_HEIGHT + 12
+    ? anchorRect.bottom + 8
+    : anchorRect.top - APPROX_HEIGHT - 8;
+
   const rawLeft = anchorRect.left + anchorRect.width / 2 - TOOLTIP_WIDTH / 2;
-  const left = Math.max(8, Math.min(rawLeft, window.innerWidth - TOOLTIP_WIDTH - 8));
+  const left = Math.max(8, Math.min(rawLeft, viewW - TOOLTIP_WIDTH - 8));
 
   return (
     <div
@@ -1465,6 +1471,667 @@ function CoffeeDetailModal({ coffee, onClose }) {
   );
 }
 
+// ─── Similarity Math ─────────────────────────────────────────────────────────
+
+function cosineSim(a, b) {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) { dot += a[i]*b[i]; na += a[i]*a[i]; nb += b[i]*b[i]; }
+  return (na && nb) ? dot / (Math.sqrt(na) * Math.sqrt(nb)) : 0;
+}
+
+const SIM_MATRIX = coffees.map(ca => coffees.map(cb => cosineSim(ca.scores, cb.scores)));
+
+function computePCA2D(vectors) {
+  const n = vectors.length, d = vectors[0].length;
+  const means = Array.from({length: d}, (_, j) => vectors.reduce((s, r) => s + r[j], 0) / n);
+  const X = vectors.map(r => r.map((v, j) => v - means[j]));
+  const C = Array.from({length: d}, (_, i) =>
+    Array.from({length: d}, (__, j) => X.reduce((s, r) => s + r[i]*r[j], 0) / (n - 1))
+  );
+  function powerIter(M, seed) {
+    let v = seed.slice();
+    const norm = w => Math.sqrt(w.reduce((s, x) => s + x*x, 0)) || 1;
+    v = v.map(x => x / norm(v));
+    for (let k = 0; k < 300; k++) {
+      const mv = M.map(row => row.reduce((s, x, j) => s + x * v[j], 0));
+      v = mv.map(x => x / (norm(mv)));
+    }
+    return v;
+  }
+  const pc1 = powerIter(C, [1, 0, 0, 0, 0, 0]);
+  const ev1 = C.reduce((s, row, i) => s + pc1[i] * row.reduce((ss, c, j) => ss + c * pc1[j], 0), 0);
+  const C2 = C.map((row, i) => row.map((val, j) => val - ev1 * pc1[i] * pc1[j]));
+  const pc2 = powerIter(C2, [0, 1, 0, 0, 0, 0]);
+  const projected = X.map(r => [
+    r.reduce((s, v, i) => s + v * pc1[i], 0),
+    r.reduce((s, v, i) => s + v * pc2[i], 0),
+  ]);
+  return { projected, pc1, pc2 };
+}
+
+const { projected: PCA_COORDS, pc1: PC1_LOAD, pc2: PC2_LOAD } = computePCA2D(coffees.map(c => c.scores));
+
+function pcAxisLabel(loadings) {
+  return loadings
+    .map((v, i) => ({ i, abs: Math.abs(v), sign: v >= 0 }))
+    .sort((a, b) => b.abs - a.abs)
+    .slice(0, 2)
+    .map(({ i, sign }) => `${sign ? "+" : "−"}${DIMS[i]}`)
+    .join(" / ");
+}
+
+// ─── Discover View ────────────────────────────────────────────────────────────
+
+function DiscoverView({ onSelectCoffee }) {
+  const [selected, setSelected] = useState(new Set());
+
+  function toggle(tag) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(tag) ? next.delete(tag) : next.add(tag);
+      return next;
+    });
+  }
+
+  const scored = coffees
+    .map(coffee => {
+      let hits = 0;
+      const matches = [];
+      coffee.highlights.forEach(h => {
+        if (!h) return;
+        h.tags.forEach(tag => { if (selected.has(tag)) { hits++; matches.push(tag); } });
+      });
+      return { coffee, score: selected.size ? hits / selected.size : 0, matches };
+    })
+    .filter(r => r.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  return (
+    <div style={{ maxWidth: 860, margin: "0 auto" }}>
+      {/* Header */}
+      <div style={{ textAlign: "center", marginBottom: 22 }}>
+        <div style={{ fontSize: 11, color: COLORS.sub, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 6 }}>
+          Find Your Perfect Cup
+        </div>
+        <p style={{ fontSize: 12, color: COLORS.sub, fontStyle: "italic", margin: 0, fontFamily: "Georgia, serif", letterSpacing: "0.03em" }}>
+          Select flavor tags you enjoy — we'll rank your best matches
+        </p>
+      </div>
+
+      {/* Active tags */}
+      {selected.size > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 18, alignItems: "center", justifyContent: "center" }}>
+          {[...selected].map(tag => (
+            <span key={tag} onClick={() => toggle(tag)} style={{
+              fontSize: 10, color: "#F0DEB8",
+              background: `${COLORS.gridOuter}35`,
+              border: `1px solid ${COLORS.gridOuter}`,
+              borderRadius: 20, padding: "3px 10px",
+              cursor: "pointer", fontFamily: "Georgia, serif",
+              letterSpacing: "0.04em", display: "inline-flex", alignItems: "center", gap: 5,
+            }}>
+              {tag} <span style={{ opacity: 0.55, fontSize: 12, lineHeight: 1 }}>×</span>
+            </span>
+          ))}
+          <button onClick={() => setSelected(new Set())} style={{
+            background: "none", border: `1px solid ${COLORS.cardBorder}`,
+            borderRadius: 20, padding: "3px 12px",
+            color: COLORS.sub, fontSize: 9, cursor: "pointer",
+            fontFamily: "Georgia, serif", letterSpacing: "0.14em", textTransform: "uppercase",
+          }}>
+            Clear all
+          </button>
+        </div>
+      )}
+
+      {/* Tag picker */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 28 }}>
+        {DIMS.map((dim, i) => (
+          <div key={dim} style={{
+            background: COLORS.cardBg, border: `1px solid ${COLORS.cardBorder}`,
+            borderRadius: 8, padding: "12px 14px",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: DIM_COLORS[i], flexShrink: 0 }} />
+              <span style={{ fontSize: 10, color: DIM_COLORS[i], letterSpacing: "0.16em", textTransform: "uppercase" }}>
+                {dim}
+              </span>
+              <span style={{ fontSize: 8.5, color: COLORS.sub, fontStyle: "italic", fontFamily: "Georgia, serif", letterSpacing: "0.03em" }}>
+                — {DIM_DESCS[i]}
+              </span>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {TAG_INDEX[i].map(([tag]) => {
+                const isActive = selected.has(tag);
+                return (
+                  <span key={tag} onClick={() => toggle(tag)} style={{
+                    fontSize: 9.5,
+                    color: isActive ? DIM_COLORS[i] : COLORS.sub,
+                    background: isActive ? `${DIM_COLORS[i]}28` : "transparent",
+                    border: `1px solid ${isActive ? DIM_COLORS[i] : COLORS.cardBorder}`,
+                    borderRadius: 20, padding: "3px 9px",
+                    cursor: "pointer", fontFamily: "Georgia, serif",
+                    letterSpacing: "0.03em", transition: "all 0.15s", userSelect: "none",
+                  }}>
+                    {tag}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Results */}
+      {selected.size > 0 ? (
+        <div>
+          <div style={{
+            fontSize: 9, color: COLORS.sub, letterSpacing: "0.2em",
+            textTransform: "uppercase", marginBottom: 14, textAlign: "center",
+          }}>
+            {scored.length > 0 ? `${scored.length} match${scored.length !== 1 ? "es" : ""} found` : "No matches — try different tags"}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {scored.map(({ coffee, score, matches }, rank) => (
+              <div
+                key={coffee.name}
+                onClick={() => onSelectCoffee(coffee)}
+                style={{
+                  background: COLORS.cardBg,
+                  border: `1px solid ${rank === 0 ? COLORS.gridOuter : COLORS.cardBorder}`,
+                  borderRadius: 8, padding: "12px 16px",
+                  cursor: "pointer", display: "flex", alignItems: "center", gap: 14,
+                  transition: "border-color 0.2s",
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = COLORS.gridOuter}
+                onMouseLeave={e => e.currentTarget.style.borderColor = rank === 0 ? COLORS.gridOuter : COLORS.cardBorder}
+              >
+                <div style={{
+                  fontSize: 18, color: rank === 0 ? "#F0DEB8" : COLORS.sub,
+                  fontFamily: "Georgia, serif", width: 22, textAlign: "center", flexShrink: 0,
+                }}>
+                  {rank + 1}
+                </div>
+                <div style={{ flexShrink: 0 }}>
+                  <RadarChart scores={coffee.scores} size={72} onDotClick={() => {}} activeDim={null} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 14, color: "#F0DEB8", fontFamily: "Georgia, serif" }}>{coffee.name}</span>
+                    <span style={{ fontSize: 9, color: COLORS.sub, letterSpacing: "0.15em", textTransform: "uppercase" }}>{coffee.region}</span>
+                    <ProcessBadge process={coffee.process} />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <div style={{ flex: 1, height: 3, background: "#2A1A08", borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{
+                        height: "100%", width: `${score * 100}%`,
+                        background: rank === 0 ? COLORS.gridOuter : `${COLORS.gridOuter}88`,
+                        borderRadius: 2, transition: "width 0.4s ease",
+                      }} />
+                    </div>
+                    <span style={{ fontSize: 9, color: COLORS.sub, width: 30, textAlign: "right", flexShrink: 0 }}>
+                      {Math.round(score * 100)}%
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {matches.map(tag => (
+                      <span key={tag} style={{
+                        fontSize: 8.5, color: COLORS.label,
+                        background: `${COLORS.gridOuter}22`, border: `1px solid ${COLORS.gridOuter}44`,
+                        borderRadius: 12, padding: "1px 7px", fontFamily: "Georgia, serif",
+                      }}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div style={{
+          textAlign: "center", padding: "32px 20px",
+          color: COLORS.sub, fontStyle: "italic",
+          fontFamily: "Georgia, serif", fontSize: 12,
+          border: `1px dashed ${COLORS.cardBorder}`, borderRadius: 8,
+        }}>
+          Select one or more flavor tags above to find your ideal coffee origin
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Similarity Matrix ────────────────────────────────────────────────────────
+
+function SimilarityMatrix() {
+  const [hov, setHov] = useState(null); // [i, j]
+  const CELL = 27;
+
+  function simColor(s) {
+    const t = Math.max(0, (s - 0.6) / 0.4);
+    return `rgb(${Math.round(26 + t*186)},${Math.round(16 + t*152)},${Math.round(8 + t*59)})`;
+  }
+
+  return (
+    <div>
+      <div style={{ textAlign: "center", marginBottom: 14 }}>
+        <div style={{ fontSize: 11, color: COLORS.sub, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 4 }}>
+          Cosine Similarity · All Pairs
+        </div>
+        <p style={{ fontSize: 10, color: COLORS.sub, fontStyle: "italic", fontFamily: "Georgia, serif", margin: 0 }}>
+          Brighter cells = more similar flavor profiles across all 6 dimensions
+        </p>
+      </div>
+
+      {hov ? (
+        <div style={{ textAlign: "center", marginBottom: 10, fontSize: 11, color: COLORS.label, fontFamily: "Georgia, serif", minHeight: 20 }}>
+          <span style={{ color: "#F0DEB8" }}>{coffees[hov[0]].name}</span>
+          {" ↔ "}
+          <span style={{ color: "#F0DEB8" }}>{coffees[hov[1]].name}</span>
+          {" — "}
+          <span style={{ color: COLORS.gridOuter }}>{(SIM_MATRIX[hov[0]][hov[1]] * 100).toFixed(1)}% similar</span>
+        </div>
+      ) : (
+        <div style={{ minHeight: 20, marginBottom: 10 }} />
+      )}
+
+      <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <div style={{ display: "inline-block" }}>
+          {/* Column headers */}
+          <div style={{ display: "flex", marginLeft: 86 }}>
+            {coffees.map((c, j) => (
+              <div key={j} style={{
+                width: CELL, flexShrink: 0, height: 64,
+                display: "flex", alignItems: "flex-end", justifyContent: "center",
+                paddingBottom: 4,
+              }}>
+                <span style={{
+                  fontSize: 7, color: hov && hov[1] === j ? COLORS.label : COLORS.sub,
+                  fontFamily: "Georgia, serif",
+                  writingMode: "vertical-rl", textOrientation: "mixed",
+                  transform: "rotate(180deg)",
+                  display: "block", maxHeight: 60, overflow: "hidden",
+                  transition: "color 0.15s",
+                }}>
+                  {c.name.split(" ")[0]}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {coffees.map((ca, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center" }}>
+              <div style={{
+                width: 86, flexShrink: 0, fontSize: 8.5,
+                color: hov && hov[0] === i ? COLORS.label : COLORS.sub,
+                fontFamily: "Georgia, serif", textAlign: "right", paddingRight: 8,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                transition: "color 0.15s",
+              }}>
+                {ca.name}
+              </div>
+              {coffees.map((_, j) => {
+                const s = SIM_MATRIX[i][j];
+                const isHov = hov && hov[0] === i && hov[1] === j;
+                const inRow = hov && hov[0] === i;
+                const inCol = hov && hov[1] === j;
+                return (
+                  <div
+                    key={j}
+                    onMouseEnter={() => setHov([i, j])}
+                    onMouseLeave={() => setHov(null)}
+                    style={{
+                      width: CELL, height: CELL, flexShrink: 0,
+                      background: simColor(s),
+                      outline: isHov ? `1.5px solid ${COLORS.gridOuter}` : (inRow || inCol ? `1px solid ${COLORS.gridOuter}44` : "none"),
+                      outlineOffset: -1,
+                      opacity: hov && !inRow && !inCol ? 0.55 : 1,
+                      transition: "opacity 0.15s",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      cursor: "default",
+                    }}
+                  >
+                    {isHov && i !== j && (
+                      <span style={{ fontSize: 6, color: "#F0DEB8", opacity: 0.9, pointerEvents: "none" }}>
+                        {(s * 100).toFixed(0)}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", marginTop: 14 }}>
+        <span style={{ fontSize: 8.5, color: COLORS.sub, fontFamily: "Georgia, serif" }}>Dissimilar</span>
+        <div style={{
+          width: 100, height: 6, borderRadius: 3,
+          background: `linear-gradient(to right, ${simColor(0.6)}, ${simColor(0.8)}, ${simColor(1.0)})`,
+        }} />
+        <span style={{ fontSize: 8.5, color: COLORS.sub, fontFamily: "Georgia, serif" }}>Identical</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── PCA Scatter ──────────────────────────────────────────────────────────────
+
+function PCAScatter({ onSelectCoffee }) {
+  const [hov, setHov] = useState(null);
+  const W = 580, H = 400, PAD = 52;
+
+  const xs = PCA_COORDS.map(p => p[0]);
+  const ys = PCA_COORDS.map(p => p[1]);
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  const yMin = Math.min(...ys), yMax = Math.max(...ys);
+  const xRange = xMax - xMin || 1;
+  const yRange = yMax - yMin || 1;
+
+  const pts = PCA_COORDS.map(([x, y]) => ({
+    cx: PAD + ((x - xMin) / xRange) * (W - 2 * PAD),
+    cy: H - PAD - ((y - yMin) / yRange) * (H - 2 * PAD),
+  }));
+
+  return (
+    <div>
+      <div style={{ textAlign: "center", marginBottom: 14 }}>
+        <div style={{ fontSize: 11, color: COLORS.sub, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 4 }}>
+          PCA · Flavor Space Map
+        </div>
+        <p style={{ fontSize: 10, color: COLORS.sub, fontStyle: "italic", fontFamily: "Georgia, serif", margin: 0 }}>
+          2D projection of 6-dimensional flavor scores — coffees that cluster together taste similar
+        </p>
+      </div>
+
+      <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <svg
+          width={W} height={H}
+          style={{ display: "block", margin: "0 auto", fontFamily: "Georgia, serif", overflow: "visible" }}
+        >
+          {/* Grid lines */}
+          <line x1={PAD} y1={H/2} x2={W-PAD} y2={H/2} stroke={COLORS.grid} strokeWidth={0.5} strokeDasharray="3 3" />
+          <line x1={W/2} y1={PAD} x2={W/2} y2={H-PAD} stroke={COLORS.grid} strokeWidth={0.5} strokeDasharray="3 3" />
+
+          {/* Axis labels */}
+          <text x={W - PAD + 6} y={H/2 + 4} fill={COLORS.sub} fontSize={7.5} textAnchor="start">{pcAxisLabel(PC1_LOAD)}</text>
+          <text x={W/2} y={PAD - 10} fill={COLORS.sub} fontSize={7.5} textAnchor="middle">{pcAxisLabel(PC2_LOAD)}</text>
+
+          {/* Points */}
+          {pts.map((pt, i) => {
+            const coffee = coffees[i];
+            const c = PROCESS_COLORS[coffee.process] ?? { text: COLORS.label, border: COLORS.gridOuter };
+            const isHov = hov === i;
+            const dim = hov !== null && !isHov;
+            return (
+              <g
+                key={i}
+                style={{ cursor: "pointer" }}
+                onMouseEnter={() => setHov(i)}
+                onMouseLeave={() => setHov(null)}
+                onClick={() => onSelectCoffee(coffee)}
+              >
+                <circle
+                  cx={pt.cx} cy={pt.cy}
+                  r={isHov ? 9 : 5}
+                  fill={c.text}
+                  fillOpacity={dim ? 0.18 : isHov ? 0.95 : 0.65}
+                  stroke={isHov ? "#F0DEB8" : c.border}
+                  strokeWidth={isHov ? 1.5 : 0.8}
+                  style={{ transition: "all 0.18s" }}
+                />
+                <text
+                  x={pt.cx + (isHov ? 11 : 7)}
+                  y={pt.cy + 4}
+                  fill={isHov ? "#F0DEB8" : COLORS.sub}
+                  fontSize={isHov ? 10 : 7.5}
+                  opacity={dim ? 0.2 : isHov ? 1 : 0.8}
+                  style={{ transition: "opacity 0.18s" }}
+                  pointerEvents="none"
+                >
+                  {coffee.name.split(" ")[0]}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      {/* Process legend */}
+      <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 12, marginTop: 12 }}>
+        {Object.entries(PROCESS_COLORS).map(([proc, c]) => (
+          <div key={proc} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: c.text, opacity: 0.75 }} />
+            <span style={{ fontSize: 8.5, color: COLORS.sub, fontFamily: "Georgia, serif" }}>{proc}</span>
+          </div>
+        ))}
+      </div>
+
+      {hov !== null && (
+        <div style={{ textAlign: "center", marginTop: 10, fontSize: 11, color: COLORS.label, fontFamily: "Georgia, serif" }}>
+          <span style={{ color: "#F0DEB8" }}>{coffees[hov].name}</span>
+          {" · "}
+          <span style={{ color: COLORS.sub, fontStyle: "italic" }}>{coffees[hov].note}</span>
+          {" · "}
+          <span style={{ fontSize: 9, color: COLORS.sub }}>click to open</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Network Graph ────────────────────────────────────────────────────────────
+
+const NETWORK_THRESHOLD = 0.88;
+
+const NETWORK_EDGES = (() => {
+  const e = [];
+  for (let i = 0; i < coffees.length; i++)
+    for (let j = i + 1; j < coffees.length; j++)
+      if (SIM_MATRIX[i][j] >= NETWORK_THRESHOLD)
+        e.push([i, j, SIM_MATRIX[i][j]]);
+  return e;
+})();
+
+const NETWORK_POSITIONS = (() => {
+  const W = 600, H = 420, N = coffees.length;
+  let pos = coffees.map((_, k) => ({
+    x: W / 2 + Math.cos(2 * Math.PI * k / N) * 170,
+    y: H / 2 + Math.sin(2 * Math.PI * k / N) * 155,
+    vx: 0, vy: 0,
+  }));
+
+  for (let iter = 0; iter < 500; iter++) {
+    pos.forEach(p => { p.fx = 0; p.fy = 0; });
+
+    // Repulsion between all pairs
+    for (let i = 0; i < N; i++) {
+      for (let j = i + 1; j < N; j++) {
+        const dx = pos[j].x - pos[i].x || 0.01;
+        const dy = pos[j].y - pos[i].y || 0.01;
+        const d2 = Math.max(dx*dx + dy*dy, 1);
+        const d = Math.sqrt(d2);
+        const f = 2600 / d2;
+        pos[i].fx -= dx/d * f; pos[i].fy -= dy/d * f;
+        pos[j].fx += dx/d * f; pos[j].fy += dy/d * f;
+      }
+    }
+
+    // Spring attraction on edges
+    NETWORK_EDGES.forEach(([i, j, sim]) => {
+      const dx = pos[j].x - pos[i].x;
+      const dy = pos[j].y - pos[i].y;
+      const d = Math.sqrt(dx*dx + dy*dy) || 1;
+      const ideal = 80 + (1 - sim) * 80;
+      const f = (d - ideal) * 0.06;
+      pos[i].fx += dx/d * f; pos[i].fy += dy/d * f;
+      pos[j].fx -= dx/d * f; pos[j].fy -= dy/d * f;
+    });
+
+    // Center gravity
+    pos.forEach(p => { p.fx += (W/2 - p.x) * 0.015; p.fy += (H/2 - p.y) * 0.015; });
+
+    // Integrate
+    pos.forEach(p => {
+      p.vx = (p.vx + p.fx) * 0.8;
+      p.vy = (p.vy + p.fy) * 0.8;
+      p.x = Math.max(18, Math.min(W - 18, p.x + p.vx));
+      p.y = Math.max(18, Math.min(H - 18, p.y + p.vy));
+    });
+  }
+  return pos.map(({ x, y }) => ({ x, y }));
+})();
+
+function NetworkGraph({ onSelectCoffee }) {
+  const [hov, setHov] = useState(null);
+  const W = 600, H = 420;
+  const NODE_R = 9;
+
+  const neighborSet = hov !== null
+    ? new Set([hov, ...NETWORK_EDGES.filter(([i,j]) => i===hov||j===hov).flatMap(([i,j]) => [i,j])])
+    : new Set();
+
+  const neighborCount = hov !== null ? neighborSet.size - 1 : 0;
+
+  return (
+    <div>
+      <div style={{ textAlign: "center", marginBottom: 14 }}>
+        <div style={{ fontSize: 11, color: COLORS.sub, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 4 }}>
+          Flavor Network · Similarity ≥ {Math.round(NETWORK_THRESHOLD * 100)}%
+        </div>
+        <p style={{ fontSize: 10, color: COLORS.sub, fontStyle: "italic", fontFamily: "Georgia, serif", margin: 0 }}>
+          Connected coffees share closely matched flavor profiles — hover to highlight neighbors
+        </p>
+      </div>
+
+      <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <svg
+          width={W} height={H}
+          style={{ display: "block", margin: "0 auto", background: `${COLORS.bg}DD`, borderRadius: 8, border: `1px solid ${COLORS.cardBorder}` }}
+        >
+          {/* Edges */}
+          {NETWORK_EDGES.map(([i, j, sim], k) => {
+            const active = hov === i || hov === j;
+            return (
+              <line
+                key={k}
+                x1={NETWORK_POSITIONS[i].x} y1={NETWORK_POSITIONS[i].y}
+                x2={NETWORK_POSITIONS[j].x} y2={NETWORK_POSITIONS[j].y}
+                stroke={COLORS.gridOuter}
+                strokeWidth={active ? (sim - NETWORK_THRESHOLD + 0.02) * 14 + 1 : (sim - NETWORK_THRESHOLD + 0.02) * 8}
+                strokeOpacity={hov === null ? 0.3 : active ? 0.85 : 0.06}
+                style={{ transition: "stroke-opacity 0.2s" }}
+              />
+            );
+          })}
+
+          {/* Nodes */}
+          {coffees.map((coffee, i) => {
+            const { x, y } = NETWORK_POSITIONS[i];
+            const c = PROCESS_COLORS[coffee.process] ?? { text: COLORS.label, border: COLORS.gridOuter };
+            const isHov = hov === i;
+            const isNeighbor = neighborSet.has(i) && !isHov;
+            const dim = hov !== null && !isHov && !isNeighbor;
+            return (
+              <g
+                key={i}
+                style={{ cursor: "pointer" }}
+                onMouseEnter={() => setHov(i)}
+                onMouseLeave={() => setHov(null)}
+                onClick={() => onSelectCoffee(coffee)}
+              >
+                <circle
+                  cx={x} cy={y}
+                  r={isHov ? NODE_R + 3 : NODE_R}
+                  fill={c.text}
+                  fillOpacity={dim ? 0.12 : isHov ? 0.92 : isNeighbor ? 0.65 : 0.5}
+                  stroke={isHov ? "#F0DEB8" : c.border}
+                  strokeWidth={isHov ? 1.8 : 0.8}
+                  strokeOpacity={dim ? 0.2 : 1}
+                  style={{ transition: "all 0.18s" }}
+                />
+                <text
+                  x={x} y={y + NODE_R + 10}
+                  textAnchor="middle"
+                  fill={isHov ? "#F0DEB8" : COLORS.sub}
+                  fontSize={isHov ? 9 : 7}
+                  opacity={dim ? 0.18 : isHov ? 1 : 0.7}
+                  style={{ transition: "opacity 0.18s" }}
+                  pointerEvents="none"
+                >
+                  {coffee.name.split(" ")[0]}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      {/* Process legend */}
+      <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 12, marginTop: 12 }}>
+        {Object.entries(PROCESS_COLORS).map(([proc, c]) => (
+          <div key={proc} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: c.text, opacity: 0.75 }} />
+            <span style={{ fontSize: 8.5, color: COLORS.sub, fontFamily: "Georgia, serif" }}>{proc}</span>
+          </div>
+        ))}
+      </div>
+
+      {hov !== null && (
+        <div style={{ textAlign: "center", marginTop: 10, fontSize: 11, color: COLORS.label, fontFamily: "Georgia, serif" }}>
+          <span style={{ color: "#F0DEB8" }}>{coffees[hov].name}</span>
+          {neighborCount > 0 && (
+            <span style={{ color: COLORS.sub }}> · {neighborCount} similar neighbor{neighborCount !== 1 ? "s" : ""}</span>
+          )}
+          {" · "}
+          <span style={{ fontSize: 9, color: COLORS.sub }}>click to open</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Stats View ───────────────────────────────────────────────────────────────
+
+function StatsView({ onSelectCoffee }) {
+  const [tab, setTab] = useState("matrix");
+  const tabs = [
+    { key: "matrix", label: "Similarity Matrix" },
+    { key: "scatter", label: "PCA Scatter" },
+    { key: "network", label: "Network Graph" },
+  ];
+  return (
+    <div style={{ maxWidth: 780, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "center", gap: 0, marginBottom: 28 }}>
+        {tabs.map(({ key, label }, idx) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            style={{
+              background: "none",
+              border: `1px solid ${tab === key ? COLORS.gridOuter : COLORS.cardBorder}`,
+              borderRadius: idx === 0 ? "4px 0 0 4px" : idx === 2 ? "0 4px 4px 0" : "0",
+              padding: "5px 16px",
+              color: tab === key ? "#F0DEB8" : COLORS.sub,
+              fontSize: 9.5, letterSpacing: "0.14em", textTransform: "uppercase",
+              cursor: "pointer", fontFamily: "Georgia, serif",
+              transition: "all 0.2s", marginLeft: idx === 0 ? 0 : -1,
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {tab === "matrix"  && <SimilarityMatrix />}
+      {tab === "scatter" && <PCAScatter onSelectCoffee={onSelectCoffee} />}
+      {tab === "network" && <NetworkGraph onSelectCoffee={onSelectCoffee} />}
+    </div>
+  );
+}
+
 // ─── Root Component ───────────────────────────────────────────────────────────
 
 export default function CoffeeInfographic() {
@@ -1710,32 +2377,56 @@ export default function CoffeeInfographic() {
         </div>
 
         {/* View toggle */}
-        <div style={{
-          display: "flex", justifyContent: "center", gap: 0,
-          marginBottom: 24,
-        }}>
-          {["cards", "heatmap", "tags"].map((v, idx) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              style={{
-                background: "none",
-                border: `1px solid ${view === v ? COLORS.gridOuter : COLORS.cardBorder}`,
-                borderRadius: idx === 0 ? "4px 0 0 4px" : idx === 2 ? "0 4px 4px 0" : "0",
-                padding: "5px 18px",
-                color: view === v ? "#F0DEB8" : COLORS.sub,
-                fontSize: 10,
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                cursor: "pointer",
-                fontFamily: "Georgia, serif",
-                transition: "all 0.2s",
-                marginLeft: idx === 0 ? 0 : -1,
-              }}
-            >
-              {v}
-            </button>
-          ))}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginBottom: 24 }}>
+          {/* Primary views */}
+          <div style={{ display: "flex", gap: 0 }}>
+            {["cards", "heatmap", "tags"].map((v, idx) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                style={{
+                  background: "none",
+                  border: `1px solid ${view === v ? COLORS.gridOuter : COLORS.cardBorder}`,
+                  borderRadius: idx === 0 ? "4px 0 0 4px" : idx === 2 ? "0 4px 4px 0" : "0",
+                  padding: "5px 18px",
+                  color: view === v ? "#F0DEB8" : COLORS.sub,
+                  fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase",
+                  cursor: "pointer", fontFamily: "Georgia, serif",
+                  transition: "all 0.2s", marginLeft: idx === 0 ? 0 : -1,
+                }}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+
+          {/* Explore views */}
+          <div style={{ display: "flex", gap: 0 }}>
+            {[
+              { key: "discover", label: "✦ Discover" },
+              { key: "stats",    label: "✦ Stats" },
+            ].map(({ key, label }, idx) => {
+              const isActive = view === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setView(key)}
+                  style={{
+                    background: isActive ? `${COLORS.gridOuter}20` : "none",
+                    border: `1px solid ${isActive ? COLORS.gridOuter : COLORS.cardBorder}`,
+                    borderRadius: idx === 0 ? "4px 0 0 4px" : "0 4px 4px 0",
+                    padding: "4px 16px",
+                    color: isActive ? COLORS.label : COLORS.sub,
+                    fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase",
+                    cursor: "pointer", fontFamily: "Georgia, serif",
+                    transition: "all 0.2s", marginLeft: idx === 0 ? 0 : -1,
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Cards grid */}
@@ -1772,6 +2463,11 @@ export default function CoffeeInfographic() {
         {/* Tag index */}
         {view === "tags" && <TagView />}
 
+        {/* Discover */}
+        {view === "discover" && <DiscoverView onSelectCoffee={setSelectedCoffee} />}
+
+        {/* Stats */}
+        {view === "stats" && <StatsView onSelectCoffee={setSelectedCoffee} />}
 
         {/* Footer */}
         <div style={{
