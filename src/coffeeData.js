@@ -4,6 +4,8 @@ export const coffees = [
     region: "East Africa",
     scores: [9, 8, 7, 3, 3, 2],
     note: "Blueberry · Jasmine · Citrus",
+    roast: "Light",
+    brewMethods: ["Pour Over", "AeroPress", "Cold Brew"],
     highlights: [
       {
         tags: ["🫐 Blueberry", "🍋 Citrus", "🍑 Stone Fruit"],
@@ -27,6 +29,8 @@ export const coffees = [
     region: "South America",
     scores: [6, 4, 8, 6, 3, 3],
     note: "Caramel · Red Fruit · Walnut",
+    roast: "Medium",
+    brewMethods: ["Pour Over", "Drip", "Espresso", "French Press"],
     highlights: [
       {
         tags: ["🍒 Red Cherry", "🍎 Apple", "🍊 Tangerine"],
@@ -50,6 +54,8 @@ export const coffees = [
     region: "East Africa",
     scores: [8, 5, 6, 3, 4, 2],
     note: "Blackcurrant · Tomato · Wine",
+    roast: "Light–Medium",
+    brewMethods: ["Pour Over", "AeroPress", "Chemex"],
     highlights: [
       {
         tags: ["🍇 Blackcurrant", "🍅 Tomato", "🍓 Berry"],
@@ -73,6 +79,8 @@ export const coffees = [
     region: "Indonesia",
     scores: [3, 2, 4, 6, 5, 9],
     note: "Cedar · Dark Chocolate · Tobacco",
+    roast: "Medium–Dark",
+    brewMethods: ["French Press", "Espresso", "Moka Pot"],
     highlights: [
       null,
       null,
@@ -96,6 +104,8 @@ export const coffees = [
     region: "South America",
     scores: [3, 2, 7, 8, 4, 5],
     note: "Chocolate · Hazelnut · Brown Sugar",
+    roast: "Medium–Dark",
+    brewMethods: ["Espresso", "French Press", "Moka Pot"],
     highlights: [
       null,
       null,
@@ -122,6 +132,8 @@ export const coffees = [
     region: "Central America",
     scores: [5, 3, 7, 7, 5, 4],
     note: "Dark Cocoa · Apple · Toffee",
+    roast: "Medium",
+    brewMethods: ["Pour Over", "French Press", "Espresso"],
     highlights: [
       {
         tags: ["🍎 Apple", "🍑 Peach"],
@@ -148,6 +160,8 @@ export const coffees = [
     region: "Central America",
     scores: [6, 4, 8, 5, 3, 2],
     note: "Honey · Peach · Mild Citrus",
+    roast: "Light–Medium",
+    brewMethods: ["Pour Over", "AeroPress", "Drip"],
     highlights: [
       {
         tags: ["🍑 Peach", "🍊 Mild Citrus", "🍒 Cherry"],
@@ -171,6 +185,8 @@ export const coffees = [
     region: "Middle East",
     scores: [5, 4, 6, 4, 7, 6],
     note: "Cardamom · Wine · Dried Fruit",
+    roast: "Medium",
+    brewMethods: ["Ibrik / Turkish", "French Press", "AeroPress"],
     highlights: [
       {
         tags: ["🍇 Dried Grape", "🫐 Fig", "🍒 Cherry"],
@@ -197,6 +213,8 @@ export const coffees = [
     region: "Caribbean",
     scores: [4, 3, 7, 7, 3, 3],
     note: "Mild · Sweet · Velvety Clean",
+    roast: "Light–Medium",
+    brewMethods: ["Pour Over", "Drip", "French Press"],
     highlights: [
       null,
       null,
@@ -217,6 +235,8 @@ export const coffees = [
     region: "Pacific",
     scores: [5, 5, 7, 6, 3, 2],
     note: "Macadamia · Floral · Sweet",
+    roast: "Light–Medium",
+    brewMethods: ["Pour Over", "Drip", "AeroPress"],
     highlights: [
       {
         tags: ["🍑 Peach", "🍊 Light Citrus"],
@@ -243,6 +263,8 @@ export const coffees = [
     region: "Southeast Asia",
     scores: [2, 1, 5, 7, 4, 8],
     note: "Dark Roast · Earthy · Robusta Bold",
+    roast: "Dark",
+    brewMethods: ["Phin Filter", "Espresso", "Cold Brew"],
     highlights: [
       null,
       null,
@@ -266,6 +288,8 @@ export const coffees = [
     region: "South America",
     scores: [5, 5, 7, 6, 3, 3],
     note: "Citrus · Mild Floral · Caramel",
+    roast: "Light–Medium",
+    brewMethods: ["Pour Over", "Drip", "AeroPress"],
     highlights: [
       {
         tags: ["🍋 Citrus", "🍑 Peach", "🍒 Mild Cherry"],
@@ -292,6 +316,8 @@ export const coffees = [
     region: "North America",
     scores: [4, 3, 6, 7, 4, 4],
     note: "Chocolate · Almond · Light Body",
+    roast: "Medium",
+    brewMethods: ["Drip", "French Press", "Espresso"],
     highlights: [
       null,
       null,
@@ -318,6 +344,8 @@ export const coffees = [
     region: "East Africa",
     scores: [7, 6, 7, 4, 3, 2],
     note: "Peach · Floral · Caramel",
+    roast: "Light–Medium",
+    brewMethods: ["Pour Over", "AeroPress", "Chemex"],
     highlights: [
       {
         tags: ["🍑 Peach", "🍊 Orange", "🫐 Blackberry"],
@@ -341,6 +369,8 @@ export const coffees = [
     region: "South Asia",
     scores: [2, 2, 5, 6, 6, 9],
     note: "Spice · Woody · Low Acid",
+    roast: "Medium–Dark",
+    brewMethods: ["French Press", "Moka Pot", "Espresso"],
     highlights: [
       null,
       null,
@@ -367,6 +397,8 @@ export const coffees = [
     region: "Central America",
     scores: [7, 10, 8, 2, 2, 1],
     note: "Jasmine · Bergamot · Peach Nectar",
+    roast: "Light",
+    brewMethods: ["Pour Over", "Chemex", "AeroPress"],
     highlights: [
       {
         tags: ["🍑 Peach", "🍊 Mandarin", "🍇 Tropical Fruit"],
@@ -390,6 +422,8 @@ export const coffees = [
     region: "East Africa",
     scores: [8, 6, 7, 3, 3, 2],
     note: "Blackcurrant · Rose · Honey",
+    roast: "Light–Medium",
+    brewMethods: ["Pour Over", "AeroPress", "Chemex"],
     highlights: [
       {
         tags: ["🍇 Blackcurrant", "🍒 Cherry", "🍊 Citrus"],
@@ -413,6 +447,8 @@ export const coffees = [
     region: "East Africa",
     scores: [7, 4, 6, 3, 3, 3],
     note: "Winey · Dark Plum · Black Tea",
+    roast: "Light–Medium",
+    brewMethods: ["Pour Over", "French Press", "Drip"],
     highlights: [
       {
         tags: ["🍷 Winey", "🫐 Dark Berry", "🍑 Plum"],
@@ -433,6 +469,8 @@ export const coffees = [
     region: "Central America",
     scores: [5, 3, 7, 6, 3, 3],
     note: "Caramel · Peach · Almond",
+    roast: "Medium",
+    brewMethods: ["Pour Over", "Drip", "Espresso"],
     highlights: [
       {
         tags: ["🍑 Peach", "🍊 Mild Citrus"],
@@ -456,6 +494,8 @@ export const coffees = [
     region: "Pacific",
     scores: [6, 3, 5, 5, 4, 7],
     note: "Tropical Fruit · Earthy · Brown Sugar",
+    roast: "Medium",
+    brewMethods: ["French Press", "Pour Over", "Espresso"],
     highlights: [
       {
         tags: ["🍍 Tropical Fruit", "🫐 Wild Berry"],

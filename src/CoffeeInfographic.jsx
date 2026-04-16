@@ -329,13 +329,14 @@ function PopoverContent({ dim, color, highlight, onClose }) {
 
 // ─── Coffee Card ──────────────────────────────────────────────────────────────
 
-function CoffeeCard({ coffee, index, activePopoverDim, onDotClick, onClosePopover }) {
+function CoffeeCard({ coffee, index, activePopoverDim, onDotClick, onClosePopover, onSelect }) {
   const [hovered, setHovered] = useState(false);
 
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={onSelect}
       style={{
         position: "relative",
         background: hovered ? "#231508" : COLORS.cardBg,
@@ -347,8 +348,8 @@ function CoffeeCard({ coffee, index, activePopoverDim, onDotClick, onClosePopove
         alignItems: "center",
         gap: 10,
         transition: "all 0.3s ease",
-        boxShadow: hovered ? "0 4px 24px rgba(212,168,67,0.08)" : "none",
-        cursor: "default",
+        boxShadow: hovered ? "0 4px 24px rgba(212,168,67,0.12)" : "none",
+        cursor: "pointer",
         animation: `fadeIn 0.5s ease ${index * 0.06}s both`,
       }}
     >
@@ -1012,6 +1013,320 @@ function MethodologyModal({ onClose }) {
   );
 }
 
+// ─── Roast Spectrum ──────────────────────────────────────────────────────────
+
+const ROAST_LEVELS = ["Light", "Light–Medium", "Medium", "Medium–Dark", "Dark"];
+const ROAST_COLORS = ["#F5D99C", "#D4A843", "#A0623A", "#6B3520", "#2A1008"];
+
+function RoastBar({ roast }) {
+  const idx = ROAST_LEVELS.indexOf(roast);
+  const pct = idx === -1 ? 50 : (idx / (ROAST_LEVELS.length - 1)) * 100;
+  const markerColor = ROAST_COLORS[idx] ?? "#D4A843";
+
+  return (
+    <div>
+      <div style={{
+        fontSize: 9, color: COLORS.sub, letterSpacing: "0.2em",
+        textTransform: "uppercase", marginBottom: 7,
+      }}>
+        Suggested Roast
+      </div>
+      {/* Gradient track */}
+      <div style={{ position: "relative", height: 6, borderRadius: 6, overflow: "visible" }}>
+        <div style={{
+          position: "absolute", inset: 0,
+          borderRadius: 6,
+          background: `linear-gradient(to right, ${ROAST_COLORS.join(", ")})`,
+          opacity: 0.55,
+        }} />
+        {/* Marker */}
+        <div style={{
+          position: "absolute",
+          top: "50%",
+          left: `${pct}%`,
+          transform: "translate(-50%, -50%)",
+          width: 12, height: 12, borderRadius: "50%",
+          background: markerColor,
+          border: `2px solid ${COLORS.bg}`,
+          boxShadow: `0 0 6px ${markerColor}88`,
+        }} />
+      </div>
+      {/* Labels */}
+      <div style={{
+        display: "flex", justifyContent: "space-between",
+        marginTop: 5,
+      }}>
+        {ROAST_LEVELS.map((lvl, i) => (
+          <span key={lvl} style={{
+            fontSize: 8,
+            color: lvl === roast ? ROAST_COLORS[i] : COLORS.sub,
+            fontFamily: "Georgia, serif",
+            fontWeight: lvl === roast ? "bold" : "normal",
+            letterSpacing: "0.03em",
+            transition: "color 0.2s",
+          }}>
+            {lvl}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Coffee Detail Modal ──────────────────────────────────────────────────────
+
+function CoffeeDetailModal({ coffee, onClose }) {
+  // Close on Escape key
+  useEffect(() => {
+    function onKey(e) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const activeHighlights = coffee.highlights
+    .map((h, i) => ({ h, i }))
+    .filter(({ h }) => h != null);
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed", inset: 0,
+          zIndex: 500,
+          background: "rgba(0,0,0,0.75)",
+          backdropFilter: "blur(2px)",
+        }}
+      />
+      {/* Modal */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: "fixed",
+          top: "50%", left: "50%",
+          transform: "translate(-50%, -50%)",
+          zIndex: 501,
+          width: "min(760px, 94vw)",
+          maxHeight: "88vh",
+          overflowY: "auto",
+          background: "#1A1008",
+          border: `1px solid ${COLORS.gridOuter}`,
+          borderRadius: 10,
+          fontFamily: "Georgia, serif",
+          animation: "popoverIn 0.18s ease both",
+          boxShadow: "0 24px 80px rgba(0,0,0,0.8)",
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          position: "sticky", top: 0, zIndex: 1,
+          background: "#1A1008",
+          borderBottom: `1px solid ${COLORS.cardBorder}`,
+          padding: "16px 20px 14px",
+          display: "flex", justifyContent: "space-between", alignItems: "flex-start",
+        }}>
+          <div>
+            <div style={{
+              fontSize: 9, letterSpacing: "0.28em", color: COLORS.sub,
+              textTransform: "uppercase", marginBottom: 4,
+            }}>
+              {coffee.region}
+            </div>
+            <h2 style={{
+              margin: 0, fontSize: 20, fontWeight: "normal",
+              color: "#F0DEB8", letterSpacing: "0.05em",
+            }}>
+              {coffee.name}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none", border: "none",
+              color: COLORS.sub, fontSize: 22,
+              cursor: "pointer", padding: "0 0 0 16px",
+              fontFamily: "Georgia, serif", lineHeight: 1, flexShrink: 0,
+            }}
+          >×</button>
+        </div>
+
+        {/* Body — two columns on desktop, stacked on mobile */}
+        <div style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 0,
+        }}>
+          {/* Left column: radar + scores */}
+          <div
+            className="detail-left"
+            style={{
+              flex: "0 0 260px",
+              padding: "20px 20px 24px",
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 16,
+            }}
+          >
+            <RadarChart
+              scores={coffee.scores}
+              size={200}
+              onDotClick={() => {}}
+              activeDim={null}
+            />
+
+            {/* Score bars */}
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6 }}>
+              {DIMS.map((d, i) => (
+                <div key={d} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{
+                    fontSize: 10, color: DIM_COLORS[i],
+                    width: 40, flexShrink: 0, letterSpacing: "0.04em",
+                  }}>
+                    {d}
+                  </div>
+                  <div style={{
+                    flex: 1, height: 3,
+                    background: "#2A1A08", borderRadius: 3, overflow: "hidden",
+                  }}>
+                    <div style={{
+                      height: "100%",
+                      width: `${coffee.scores[i] * 10}%`,
+                      background: DIM_COLORS[i],
+                      borderRadius: 3, opacity: 0.85,
+                      transition: "width 0.8s ease",
+                    }} />
+                  </div>
+                  <div style={{
+                    fontSize: 11, color: DIM_COLORS[i],
+                    width: 18, textAlign: "right", opacity: 0.8,
+                  }}>
+                    {coffee.scores[i]}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right column: tasting note, roast, brew methods, highlights */}
+          <div style={{
+            flex: "1 1 280px",
+            padding: "20px 22px 24px",
+            display: "flex", flexDirection: "column", gap: 20,
+          }}>
+            {/* Tasting note */}
+            <div>
+              <div style={{
+                fontSize: 9, color: COLORS.sub, letterSpacing: "0.2em",
+                textTransform: "uppercase", marginBottom: 7,
+              }}>
+                Tasting Notes
+              </div>
+              <p style={{
+                margin: 0,
+                fontSize: 13, color: COLORS.label, fontStyle: "italic",
+                lineHeight: 1.65, letterSpacing: "0.03em",
+              }}>
+                {coffee.note}
+              </p>
+            </div>
+
+            {/* Roast bar */}
+            <RoastBar roast={coffee.roast} />
+
+            {/* Brew methods */}
+            <div>
+              <div style={{
+                fontSize: 9, color: COLORS.sub, letterSpacing: "0.2em",
+                textTransform: "uppercase", marginBottom: 7,
+              }}>
+                Recommended Brews
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {coffee.brewMethods.map((method) => (
+                  <span key={method} style={{
+                    fontSize: 10,
+                    color: COLORS.label,
+                    background: `${COLORS.gridOuter}22`,
+                    border: `1px solid ${COLORS.gridOuter}55`,
+                    borderRadius: 20,
+                    padding: "3px 10px",
+                    letterSpacing: "0.04em",
+                    fontFamily: "Georgia, serif",
+                  }}>
+                    {method}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Separator */}
+            <div style={{ height: 1, background: COLORS.cardBorder }} />
+
+            {/* Per-dimension highlights */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{
+                fontSize: 9, color: COLORS.sub, letterSpacing: "0.2em",
+                textTransform: "uppercase",
+              }}>
+                Flavor Breakdown
+              </div>
+              {activeHighlights.map(({ h, i }) => (
+                <div key={i}>
+                  {/* Dim header */}
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 7, marginBottom: 6,
+                  }}>
+                    <div style={{
+                      width: 6, height: 6, borderRadius: "50%",
+                      background: DIM_COLORS[i], flexShrink: 0,
+                    }} />
+                    <span style={{
+                      fontSize: 9.5, color: DIM_COLORS[i],
+                      letterSpacing: "0.16em", textTransform: "uppercase",
+                    }}>
+                      {DIMS[i]}
+                    </span>
+                    <span style={{
+                      fontSize: 8.5, color: COLORS.sub,
+                      fontStyle: "italic", letterSpacing: "0.03em",
+                    }}>
+                      — {DIM_DESCS[i]}
+                    </span>
+                  </div>
+                  {/* Tags */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 6 }}>
+                    {h.tags.map((tag) => (
+                      <span key={tag} style={{
+                        fontSize: 9,
+                        color: DIM_COLORS[i],
+                        background: `${DIM_COLORS[i]}28`,
+                        border: `1px solid ${DIM_COLORS[i]}50`,
+                        borderRadius: 20,
+                        padding: "2px 8px",
+                        letterSpacing: "0.04em",
+                        whiteSpace: "nowrap",
+                      }}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  {/* Note */}
+                  <p style={{
+                    margin: 0, fontSize: 10.5, color: COLORS.sub,
+                    fontStyle: "italic", lineHeight: 1.6, letterSpacing: "0.02em",
+                    paddingLeft: 13,
+                  }}>
+                    {h.note}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Root Component ───────────────────────────────────────────────────────────
 
 export default function CoffeeInfographic() {
@@ -1019,6 +1334,7 @@ export default function CoffeeInfographic() {
   const [sortDir, setSortDir] = useState("desc");
   const [view, setView] = useState("cards");
   const [showMethodology, setShowMethodology] = useState(false);
+  const [selectedCoffee, setSelectedCoffee] = useState(null);
   // { coffeeName: string, dimIndex: number } | null
   const [activePopover, setActivePopover] = useState(null);
 
@@ -1120,6 +1436,18 @@ export default function CoffeeInfographic() {
         @media (min-width: 701px) and (max-width: 960px) {
           .coffee-grid, .tag-grid {
             grid-template-columns: repeat(2, 1fr);
+          }
+        }
+        .detail-left {
+          flex: 0 0 260px;
+          min-width: 220px;
+          border-right: 1px solid ${COLORS.cardBorder};
+        }
+        @media (max-width: 560px) {
+          .detail-left {
+            flex: 1 1 100%;
+            border-right: none;
+            border-bottom: 1px solid ${COLORS.cardBorder};
           }
         }
       `}</style>
@@ -1287,6 +1615,7 @@ export default function CoffeeInfographic() {
                 }
                 onDotClick={(dimIndex) => handleDotClick(coffee.name, dimIndex)}
                 onClosePopover={() => setActivePopover(null)}
+                onSelect={() => setSelectedCoffee(coffee)}
               />
             ))}
           </div>
@@ -1353,6 +1682,13 @@ export default function CoffeeInfographic() {
 
       {showMethodology && (
         <MethodologyModal onClose={() => setShowMethodology(false)} />
+      )}
+
+      {selectedCoffee && (
+        <CoffeeDetailModal
+          coffee={selectedCoffee}
+          onClose={() => setSelectedCoffee(null)}
+        />
       )}
     </>
   );
