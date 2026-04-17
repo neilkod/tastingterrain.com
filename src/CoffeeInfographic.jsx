@@ -1697,8 +1697,7 @@ function DiscoverView({ onSelectCoffee }) {
 
 // ─── Flavor Map (PCA Scatter) ─────────────────────────────────────────────────
 
-function PCAScatter({ onSelectCoffee }) {
-  const [hov, setHov] = useState(null);
+function PCAScatter() {
   const W = 780, H = 500, PAD = 44;
 
   const xs = PCA_COORDS.map(p => p[0]);
@@ -1726,7 +1725,7 @@ function PCAScatter({ onSelectCoffee }) {
         </p>
       </div>
 
-      {/* Chart — viewBox makes it scale down on narrow screens */}
+      {/* Chart — viewBox scales down on narrow screens */}
       <svg
         viewBox={`0 0 ${W} ${H}`}
         style={{ display: "block", width: "100%", height: "auto", fontFamily: "Georgia, serif" }}
@@ -1741,31 +1740,16 @@ function PCAScatter({ onSelectCoffee }) {
         {pts.map((pt, i) => {
           const coffee = coffees[i];
           const c = PROCESS_COLORS[coffee.process] ?? { text: COLORS.label, border: COLORS.gridOuter };
-          const isHov = hov === i;
-          const dim   = hov !== null && !isHov;
           return (
-            <g
-              key={i}
-              style={{ cursor: "pointer" }}
-              onMouseEnter={() => setHov(i)}
-              onMouseLeave={() => setHov(null)}
-              onClick={() => onSelectCoffee(coffee)}
-            >
+            <g key={i}>
               <circle
-                cx={pt.cx} cy={pt.cy}
-                r={isHov ? 9 : 5.5}
-                fill={c.text}
-                fillOpacity={dim ? 0.15 : isHov ? 0.95 : 0.65}
-                stroke={isHov ? "#F0DEB8" : c.border}
-                strokeWidth={isHov ? 1.5 : 0.8}
-                style={{ transition: "all 0.18s" }}
+                cx={pt.cx} cy={pt.cy} r={5.5}
+                fill={c.text} fillOpacity={0.65}
+                stroke={c.border} strokeWidth={0.8}
               />
               <text
-                x={pt.cx + (isHov ? 12 : 8)} y={pt.cy + 4}
-                fill={isHov ? "#F0DEB8" : COLORS.sub}
-                fontSize={isHov ? 10 : 8}
-                opacity={dim ? 0.2 : isHov ? 1 : 0.85}
-                style={{ transition: "opacity 0.18s" }}
+                x={pt.cx + 8} y={pt.cy + 4}
+                fill={COLORS.sub} fontSize={8}
                 pointerEvents="none"
               >
                 {coffee.name.split(" ")[0]}
@@ -1783,21 +1767,6 @@ function PCAScatter({ onSelectCoffee }) {
             <span style={{ fontSize: 8.5, color: COLORS.sub, fontFamily: "Georgia, serif" }}>{proc}</span>
           </div>
         ))}
-      </div>
-
-      {/* Info bar */}
-      <div style={{ minHeight: 24, marginTop: 10, textAlign: "center", fontSize: 11, color: COLORS.label, fontFamily: "Georgia, serif" }}>
-        {hov !== null ? (
-          <>
-            <span style={{ color: "#F0DEB8" }}>{coffees[hov].name}</span>
-            {" · "}
-            <span style={{ color: COLORS.sub, fontStyle: "italic" }}>{coffees[hov].note}</span>
-            {" · "}
-            <span style={{ fontSize: 9, color: COLORS.sub }}>click to open</span>
-          </>
-        ) : (
-          <span style={{ fontSize: 9, color: "#3A2A14" }}>hover to explore · click to open</span>
-        )}
       </div>
     </div>
   );
@@ -2114,7 +2083,7 @@ export default function CoffeeInfographic() {
         {view === "discover" && <DiscoverView onSelectCoffee={setSelectedCoffee} />}
 
         {/* Flavor Map */}
-        {view === "map" && <PCAScatter onSelectCoffee={setSelectedCoffee} />}
+        {view === "map" && <PCAScatter />}
 
         {/* Footer */}
         <div style={{
