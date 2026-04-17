@@ -1512,18 +1512,6 @@ function pcAxisLabel(loadings) {
     .join(" / ");
 }
 
-function euclidDist(a, b) {
-  return Math.sqrt(a.reduce((sum, v, i) => sum + (v - b[i]) ** 2, 0));
-}
-
-const NEIGHBORS = coffees.map((c, i) =>
-  coffees
-    .map((d, j) => ({ j, dist: i === j ? Infinity : euclidDist(c.scores, d.scores) }))
-    .sort((a, b) => a.dist - b.dist)
-    .slice(0, 3)
-    .map(x => x.j)
-);
-
 // ─── Discover View ────────────────────────────────────────────────────────────
 
 function DiscoverView({ onSelectCoffee }) {
@@ -1710,10 +1698,7 @@ function DiscoverView({ onSelectCoffee }) {
 // ─── Flavor Map (PCA Scatter) ─────────────────────────────────────────────────
 
 function PCAScatter({ onSelectCoffee }) {
-  const [hov, setHov]           = useState(null);
-  const [selected, setSelected] = useState(null);
-  const [colorMode, setColorMode] = useState("process"); // "process" | 0–5
-
+  const [hov, setHov] = useState(null);
   const W = 780, H = 500, PAD = 44;
 
   const xs = PCA_COORDS.map(p => p[0]);
@@ -1728,73 +1713,11 @@ function PCAScatter({ onSelectCoffee }) {
     cy: H - PAD - ((y - yMin) / yRange) * (H - 2 * PAD),
   }));
 
-  const neighborSet = selected !== null
-    ? new Set([selected, ...NEIGHBORS[selected]])
-    : new Set();
-
-  // Voronoi-style hover: find nearest point to mouse position
-  function handleMouseMove(e) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const scaleX = W / rect.width;
-    const scaleY = H / rect.height;
-    const mx = (e.clientX - rect.left) * scaleX;
-    const my = (e.clientY - rect.top)  * scaleY;
-    let nearest = 0, minDist = Infinity;
-    pts.forEach(({ cx, cy }, i) => {
-      const d = (mx - cx) ** 2 + (my - cy) ** 2;
-      if (d < minDist) { minDist = d; nearest = i; }
-    });
-    setHov(nearest);
-  }
-
-  function handleClick() {
-    if (hov === null) return;
-    setSelected(prev => prev === hov ? null : hov);
-  }
-
-  // Point appearance helpers
-  function getColor(i) {
-    if (colorMode === "process") {
-      return (PROCESS_COLORS[coffees[i].process] ?? { text: COLORS.label }).text;
-    }
-    return DIM_COLORS[colorMode];
-  }
-
-  function getOpacity(i) {
-    const isHov      = hov === i;
-    const isSel      = selected === i;
-    const isNeighbor = neighborSet.has(i) && !isSel;
-
-    if (selected !== null) {
-      if (isSel)      return 0.95;
-      if (isNeighbor) return 0.78;
-      return 0.1;
-    }
-    if (colorMode !== "process") {
-      const t = (coffees[i].scores[colorMode] - 1) / 9;
-      return isHov ? 1 : 0.12 + t * 0.82;
-    }
-    return isHov ? 0.95 : (hov !== null ? 0.18 : 0.65);
-  }
-
-  function getStroke(i) {
-    if (i === selected)        return "#F0DEB8";
-    if (neighborSet.has(i))    return COLORS.gridOuter;
-    if (colorMode === "process")
-      return (PROCESS_COLORS[coffees[i].process] ?? { border: COLORS.gridOuter }).border;
-    return DIM_COLORS[colorMode];
-  }
-
-  const colorModes = [
-    { key: "process", label: "Process" },
-    ...DIMS.map((d, i) => ({ key: i, label: d })),
-  ];
-
   return (
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
 
       {/* Header */}
-      <div style={{ textAlign: "center", marginBottom: 12 }}>
+      <div style={{ textAlign: "center", marginBottom: 14 }}>
         <div style={{ fontSize: 11, color: COLORS.sub, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 4 }}>
           Flavor Map
         </div>
@@ -1803,152 +1726,77 @@ function PCAScatter({ onSelectCoffee }) {
         </p>
       </div>
 
-      {/* Color-mode toggle */}
-      <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
-        {colorModes.map(({ key, label }, idx, arr) => {
-          const isActive = colorMode === key;
-          const accent   = typeof key === "number" ? DIM_COLORS[key] : COLORS.gridOuter;
+      {/* Chart — viewBox makes it scale down on narrow screens */}
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ display: "block", width: "100%", height: "auto", fontFamily: "Georgia, serif" }}
+      >
+        {/* Grid */}
+        <line x1={PAD} y1={H/2} x2={W-PAD} y2={H/2} stroke={COLORS.grid} strokeWidth={0.5} strokeDasharray="3 3" />
+        <line x1={W/2} y1={PAD} x2={W/2} y2={H-PAD} stroke={COLORS.grid} strokeWidth={0.5} strokeDasharray="3 3" />
+        <text x={W-PAD+6} y={H/2+4}  fill={COLORS.sub} fontSize={8} textAnchor="start">{pcAxisLabel(PC1_LOAD)}</text>
+        <text x={W/2}     y={PAD-10} fill={COLORS.sub} fontSize={8} textAnchor="middle">{pcAxisLabel(PC2_LOAD)}</text>
+
+        {/* Points */}
+        {pts.map((pt, i) => {
+          const coffee = coffees[i];
+          const c = PROCESS_COLORS[coffee.process] ?? { text: COLORS.label, border: COLORS.gridOuter };
+          const isHov = hov === i;
+          const dim   = hov !== null && !isHov;
           return (
-            <button
-              key={String(key)}
-              onClick={() => { setColorMode(key); setSelected(null); }}
-              style={{
-                background: isActive ? `${accent}22` : "none",
-                border: `1px solid ${isActive ? accent : COLORS.cardBorder}`,
-                borderRadius: idx === 0 ? "4px 0 0 4px" : idx === arr.length - 1 ? "0 4px 4px 0" : "0",
-                padding: "3px 11px",
-                color: isActive ? (typeof key === "number" ? DIM_COLORS[key] : "#F0DEB8") : COLORS.sub,
-                fontSize: 9, letterSpacing: "0.13em", textTransform: "uppercase",
-                cursor: "pointer", fontFamily: "Georgia, serif",
-                transition: "all 0.2s", marginLeft: idx === 0 ? 0 : -1,
-                position: "relative", zIndex: isActive ? 1 : 0,
-              }}
+            <g
+              key={i}
+              style={{ cursor: "pointer" }}
+              onMouseEnter={() => setHov(i)}
+              onMouseLeave={() => setHov(null)}
+              onClick={() => onSelectCoffee(coffee)}
             >
-              {label}
-            </button>
+              <circle
+                cx={pt.cx} cy={pt.cy}
+                r={isHov ? 9 : 5.5}
+                fill={c.text}
+                fillOpacity={dim ? 0.15 : isHov ? 0.95 : 0.65}
+                stroke={isHov ? "#F0DEB8" : c.border}
+                strokeWidth={isHov ? 1.5 : 0.8}
+                style={{ transition: "all 0.18s" }}
+              />
+              <text
+                x={pt.cx + (isHov ? 12 : 8)} y={pt.cy + 4}
+                fill={isHov ? "#F0DEB8" : COLORS.sub}
+                fontSize={isHov ? 10 : 8}
+                opacity={dim ? 0.2 : isHov ? 1 : 0.85}
+                style={{ transition: "opacity 0.18s" }}
+                pointerEvents="none"
+              >
+                {coffee.name.split(" ")[0]}
+              </text>
+            </g>
           );
         })}
+      </svg>
+
+      {/* Process legend */}
+      <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 12, marginTop: 10 }}>
+        {Object.entries(PROCESS_COLORS).map(([proc, c]) => (
+          <div key={proc} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: c.text, opacity: 0.75 }} />
+            <span style={{ fontSize: 8.5, color: COLORS.sub, fontFamily: "Georgia, serif" }}>{proc}</span>
+          </div>
+        ))}
       </div>
-
-      {/* Chart */}
-      <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-        <svg
-          width={W} height={H}
-          style={{ display: "block", margin: "0 auto", fontFamily: "Georgia, serif", overflow: "visible", cursor: "crosshair" }}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={() => setHov(null)}
-          onClick={handleClick}
-        >
-          {/* Grid */}
-          <line x1={PAD} y1={H/2} x2={W-PAD} y2={H/2} stroke={COLORS.grid} strokeWidth={0.5} strokeDasharray="3 3" />
-          <line x1={W/2} y1={PAD} x2={W/2} y2={H-PAD} stroke={COLORS.grid} strokeWidth={0.5} strokeDasharray="3 3" />
-          <text x={W-PAD+6}  y={H/2+4}  fill={COLORS.sub} fontSize={7.5} textAnchor="start">{pcAxisLabel(PC1_LOAD)}</text>
-          <text x={W/2}      y={PAD-10} fill={COLORS.sub} fontSize={7.5} textAnchor="middle">{pcAxisLabel(PC2_LOAD)}</text>
-
-          {/* Neighbor lines (drawn before points so they're behind) */}
-          {selected !== null && NEIGHBORS[selected].map(j => {
-            const a = pts[selected], b = pts[j];
-            const dist = euclidDist(coffees[selected].scores, coffees[j].scores);
-            const weight = Math.max(0.4, 2.5 - dist * 0.12);
-            return (
-              <line key={j}
-                x1={a.cx} y1={a.cy} x2={b.cx} y2={b.cy}
-                stroke={COLORS.gridOuter} strokeWidth={weight}
-                strokeOpacity={0.55} strokeDasharray="5 3"
-                style={{ transition: "all 0.2s" }}
-              />
-            );
-          })}
-
-          {/* Points */}
-          {pts.map((pt, i) => {
-            const isSel      = selected === i;
-            const isNeighbor = neighborSet.has(i) && !isSel;
-            const isHov      = hov === i;
-            const r          = isSel || isHov ? 9 : 5.5;
-            return (
-              <g key={i} pointerEvents="none">
-                <circle
-                  cx={pt.cx} cy={pt.cy} r={r}
-                  fill={getColor(i)}
-                  fillOpacity={getOpacity(i)}
-                  stroke={getStroke(i)}
-                  strokeWidth={isSel ? 1.8 : isHov ? 1.4 : 0.8}
-                  style={{ transition: "all 0.18s" }}
-                />
-                <text
-                  x={pt.cx + r + 3} y={pt.cy + 4}
-                  fill={isSel || isHov ? "#F0DEB8" : COLORS.sub}
-                  fontSize={isSel || isHov ? 10 : 8}
-                  opacity={selected !== null && !isSel && !isNeighbor ? 0.18 : isSel || isHov ? 1 : 0.8}
-                  style={{ transition: "opacity 0.18s" }}
-                  pointerEvents="none"
-                >
-                  {coffees[i].name.split(" ")[0]}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-
-      {/* Legend */}
-      {colorMode === "process" ? (
-        <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 12, marginTop: 10 }}>
-          {Object.entries(PROCESS_COLORS).map(([proc, c]) => (
-            <div key={proc} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: c.text, opacity: 0.75 }} />
-              <span style={{ fontSize: 8.5, color: COLORS.sub, fontFamily: "Georgia, serif" }}>{proc}</span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 10 }}>
-          <span style={{ fontSize: 8.5, color: COLORS.sub, fontFamily: "Georgia, serif" }}>Low</span>
-          <div style={{
-            width: 120, height: 6, borderRadius: 3,
-            background: `linear-gradient(to right, ${DIM_COLORS[colorMode]}18, ${DIM_COLORS[colorMode]})`,
-          }} />
-          <span style={{ fontSize: 8.5, color: COLORS.sub, fontFamily: "Georgia, serif" }}>High {DIMS[colorMode]}</span>
-        </div>
-      )}
 
       {/* Info bar */}
-      <div style={{ minHeight: 28, marginTop: 10, textAlign: "center", fontSize: 11, color: COLORS.label, fontFamily: "Georgia, serif" }}>
-        {selected !== null ? (
-          <>
-            <span style={{ color: "#F0DEB8" }}>{coffees[selected].name}</span>
-            {" · "}
-            <span style={{ color: COLORS.sub, fontStyle: "italic", fontSize: 10 }}>{coffees[selected].note}</span>
-            {"  ·  "}
-            <span style={{ color: COLORS.sub, fontSize: 9 }}>nearest: </span>
-            {NEIGHBORS[selected].map((j, k) => (
-              <span key={j}>
-                <span style={{ color: COLORS.gridOuter }}>{coffees[j].name.split(" ")[0]}</span>
-                {k < 2 && <span style={{ color: "#3A2A14" }}>,  </span>}
-              </span>
-            ))}
-            {"  ·  "}
-            <span
-              onClick={(e) => { e.stopPropagation(); onSelectCoffee(coffees[selected]); }}
-              style={{ color: COLORS.sub, fontSize: 9, cursor: "pointer", borderBottom: `1px solid ${COLORS.sub}44`, paddingBottom: 1 }}
-            >open ↗</span>
-            {"  "}
-            <span
-              onClick={(e) => { e.stopPropagation(); setSelected(null); }}
-              style={{ color: "#3A2A14", fontSize: 9, cursor: "pointer" }}
-            >×</span>
-          </>
-        ) : hov !== null ? (
+      <div style={{ minHeight: 24, marginTop: 10, textAlign: "center", fontSize: 11, color: COLORS.label, fontFamily: "Georgia, serif" }}>
+        {hov !== null ? (
           <>
             <span style={{ color: "#F0DEB8" }}>{coffees[hov].name}</span>
             {" · "}
-            <span style={{ color: COLORS.sub, fontStyle: "italic", fontSize: 10 }}>{coffees[hov].note}</span>
+            <span style={{ color: COLORS.sub, fontStyle: "italic" }}>{coffees[hov].note}</span>
             {" · "}
-            <span style={{ fontSize: 9, color: "#3A2A14" }}>click to find neighbors</span>
+            <span style={{ fontSize: 9, color: COLORS.sub }}>click to open</span>
           </>
         ) : (
-          <span style={{ fontSize: 9, color: "#3A2A14" }}>hover to explore · click a point to find similar coffees</span>
+          <span style={{ fontSize: 9, color: "#3A2A14" }}>hover to explore · click to open</span>
         )}
       </div>
     </div>
