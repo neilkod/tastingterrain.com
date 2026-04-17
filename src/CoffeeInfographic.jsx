@@ -2162,7 +2162,7 @@ export default function CoffeeInfographic() {
               nkodner@gmail.com
             </a>
             <span style={{ color: "#3A2A14" }}>·</span>
-            <a href="https://github.com/neilkod/coffee-flavor-map" target="_blank" rel="noreferrer" style={{
+            <a href="https://github.com/neilkod/tastingterrain.com" target="_blank" rel="noreferrer" style={{
               color: COLORS.sub, textDecoration: "none",
               borderBottom: `1px solid ${COLORS.sub}55`,
               paddingBottom: 1, transition: "color 0.2s",
