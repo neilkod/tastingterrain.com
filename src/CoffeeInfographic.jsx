@@ -1698,6 +1698,7 @@ function DiscoverView({ onSelectCoffee }) {
 // ─── Flavor Map (PCA Scatter) ─────────────────────────────────────────────────
 
 function PCAScatter() {
+  const [showExplainer, setShowExplainer] = useState(false);
   const W = 780, H = 500, PAD = 44;
 
   const xs = PCA_COORDS.map(p => p[0]);
@@ -1717,12 +1718,55 @@ function PCAScatter() {
 
       {/* Header */}
       <div style={{ textAlign: "center", marginBottom: 14 }}>
-        <div style={{ fontSize: 11, color: COLORS.sub, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 4 }}>
-          Flavor Map
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
+          <div style={{ fontSize: 11, color: COLORS.sub, letterSpacing: "0.16em", textTransform: "uppercase" }}>
+            Flavor Map
+          </div>
+          <button
+            onClick={() => setShowExplainer(v => !v)}
+            title="How to read this chart"
+            style={{
+              background: "none", border: `1px solid ${showExplainer ? COLORS.gridOuter : COLORS.cardBorder}`,
+              borderRadius: "50%", width: 16, height: 16,
+              color: showExplainer ? COLORS.label : COLORS.sub,
+              fontSize: 9, cursor: "pointer", fontFamily: "Georgia, serif",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0, transition: "border-color 0.2s, color 0.2s", padding: 0,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = COLORS.gridOuter; e.currentTarget.style.color = COLORS.label; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = showExplainer ? COLORS.gridOuter : COLORS.cardBorder; e.currentTarget.style.color = showExplainer ? COLORS.label : COLORS.sub; }}
+          >?</button>
         </div>
         <p style={{ fontSize: 10, color: COLORS.sub, fontStyle: "italic", fontFamily: "Georgia, serif", margin: 0 }}>
-          2D projection of 6-dimensional flavor scores — coffees that cluster together taste similar
+          Coffees plotted by flavor similarity — the closer together, the more alike they taste
         </p>
+
+        {showExplainer && (
+          <div style={{
+            maxWidth: 560, margin: "14px auto 0",
+            background: COLORS.cardBg, border: `1px solid ${COLORS.cardBorder}`,
+            borderRadius: 8, padding: "14px 18px", textAlign: "left",
+            animation: "popoverIn 0.15s ease both",
+          }}>
+            <div style={{ fontSize: 10, color: COLORS.label, lineHeight: 1.8, fontFamily: "Georgia, serif", letterSpacing: "0.02em" }}>
+              <p style={{ margin: "0 0 10px" }}>
+                Every coffee in this dataset has six flavor scores — Fruity, Floral, Sweet, Nutty, Spicy, and Earthy.
+                Comparing all six dimensions at once is hard to visualize, so this chart compresses them down to two
+                directions that capture the most meaningful differences between the coffees.
+              </p>
+              <p style={{ margin: "0 0 10px" }}>
+                Think of it as a <em style={{ color: "#F0DEB8" }}>flavor map</em>: coffees that land close together
+                have similar overall profiles, while coffees far apart taste quite different. The exact position on
+                any axis isn't the point — the <em style={{ color: "#F0DEB8" }}>distances between coffees</em> are
+                what matter.
+              </p>
+              <p style={{ margin: 0 }}>
+                Dot colors show how each coffee was processed after harvest (Washed, Natural, Honey, etc.) —
+                you may notice coffees of the same process type tend to cluster together.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Chart — viewBox scales down on narrow screens */}
