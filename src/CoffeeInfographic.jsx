@@ -1761,8 +1761,10 @@ function PCAScatter() {
                 what matter.
               </p>
               <p style={{ margin: 0 }}>
-                Dot colors show how each coffee was processed after harvest (Washed, Natural, Honey, etc.) —
-                you may notice coffees of the same process type tend to cluster together.
+                Dot colors show each coffee's <em style={{ color: "#F0DEB8" }}>strongest flavor dimension</em> —
+                the one it scores highest on. These are the same colors used for Fruity, Floral, Sweet, Nutty,
+                Spicy, and Earthy throughout the rest of the site, so clusters of the same color indicate
+                coffees that share a dominant flavor character.
               </p>
             </div>
           </div>
@@ -1780,16 +1782,17 @@ function PCAScatter() {
         <text x={W-PAD+6} y={H/2+4}  fill={COLORS.sub} fontSize={8} textAnchor="start">{pcAxisLabel(PC1_LOAD)}</text>
         <text x={W/2}     y={PAD-10} fill={COLORS.sub} fontSize={8} textAnchor="middle">{pcAxisLabel(PC2_LOAD)}</text>
 
-        {/* Points */}
+        {/* Points — colored by dominant flavor dimension */}
         {pts.map((pt, i) => {
           const coffee = coffees[i];
-          const c = PROCESS_COLORS[coffee.process] ?? { text: COLORS.label, border: COLORS.gridOuter };
+          const domIdx = coffee.scores.indexOf(Math.max(...coffee.scores));
+          const fill   = DIM_COLORS[domIdx];
           return (
             <g key={i}>
               <circle
                 cx={pt.cx} cy={pt.cy} r={5.5}
-                fill={c.text} fillOpacity={0.65}
-                stroke={c.border} strokeWidth={0.8}
+                fill={fill} fillOpacity={0.7}
+                stroke={fill} strokeWidth={0.8} strokeOpacity={0.5}
               />
               <text
                 x={pt.cx + 8} y={pt.cy + 4}
@@ -1803,12 +1806,12 @@ function PCAScatter() {
         })}
       </svg>
 
-      {/* Process legend */}
-      <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 12, marginTop: 10 }}>
-        {Object.entries(PROCESS_COLORS).map(([proc, c]) => (
-          <div key={proc} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: c.text, opacity: 0.75 }} />
-            <span style={{ fontSize: 8.5, color: COLORS.sub, fontFamily: "Georgia, serif" }}>{proc}</span>
+      {/* Dimension legend */}
+      <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 14, marginTop: 10 }}>
+        {DIMS.map((dim, i) => (
+          <div key={dim} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: DIM_COLORS[i], opacity: 0.85 }} />
+            <span style={{ fontSize: 8.5, color: COLORS.sub, fontFamily: "Georgia, serif" }}>{dim}</span>
           </div>
         ))}
       </div>
