@@ -537,8 +537,9 @@ function ChipTooltip({ coffee, anchorRect, onClose }) {
   const top = spaceBelow > approxHeight + 12
     ? anchorRect.bottom + 8
     : anchorRect.top - approxHeight - 8;
+  const viewW = document.documentElement.clientWidth;
   const rawLeft = anchorRect.left + anchorRect.width / 2 - TOOLTIP_WIDTH / 2;
-  const left = Math.max(8, Math.min(rawLeft, window.innerWidth - TOOLTIP_WIDTH - 8));
+  const left = Math.max(8, Math.min(rawLeft, viewW - TOOLTIP_WIDTH - 8));
 
   return (
     <div
@@ -546,6 +547,7 @@ function ChipTooltip({ coffee, anchorRect, onClose }) {
         position: "fixed",
         top, left,
         width: TOOLTIP_WIDTH,
+        boxSizing: "border-box",
         zIndex: 300,
         background: "#1F1409",
         border: `1px solid ${COLORS.gridOuter}55`,
