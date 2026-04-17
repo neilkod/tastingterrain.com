@@ -2,7 +2,7 @@
 
 An interactive flavor infographic comparing 20 single-origin coffees across six sensory dimensions. Built with React + Vite, deployed as a static site on Vercel.
 
-**Live site:** [coffee-flavor-map.vercel.app](https://coffee-flavor-map.vercel.app)
+**Live site:** [tastingterrain.com](https://tastingterrain.com)
 
 ---
 
