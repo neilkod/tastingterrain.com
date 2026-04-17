@@ -2065,6 +2065,7 @@ export default function CoffeeInfographic() {
                 fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase",
                 cursor: "pointer", fontFamily: "Georgia, serif",
                 transition: "all 0.2s", marginLeft: idx === 0 ? 0 : -1,
+                position: "relative", zIndex: view === key ? 1 : 0,
               }}
             >
               {label}
