@@ -1040,23 +1040,20 @@ function HeatmapView({ coffees, sortDim, onDimClick, sortDir }) {
 
 function MethodologyModal({ onClose }) {
   return (
-    <>
-      <div
-        onClick={onClose}
-        style={{
-          position: "fixed", inset: 0,
-          zIndex: 400, background: "rgba(0,0,0,0.7)",
-        }}
-      />
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0,
+        zIndex: 400, background: "rgba(0,0,0,0.7)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "20px",
+      }}
+    >
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          position: "fixed",
-          top: "50%", left: "50%",
-          transform: "translate(-50%, -50%)",
-          zIndex: 401,
-          width: "min(600px, 92vw)",
-          maxHeight: "80vh",
+          width: "min(600px, 100%)",
+          maxHeight: "calc(100vh - 40px)",
           overflowY: "auto",
           background: "#1F1409",
           border: `1px solid ${COLORS.gridOuter}`,
@@ -1153,7 +1150,7 @@ function MethodologyModal({ onClose }) {
           Scores are illustrative and educational — not the result of controlled sensory analysis.
         </p>
       </div>
-    </>
+    </div>
   );
 }
 
