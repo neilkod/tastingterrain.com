@@ -1237,7 +1237,7 @@ function getSimilar(coffee, n = 3) {
     .map(d => d.coffee);
 }
 
-function CoffeeDetailModal({ coffee, onClose, onSelect }) {
+function CoffeeDetailModal({ coffee, onClose, onSelect, onCompare }) {
   const [showProcessExplainer, setShowProcessExplainer] = useState(false);
 
   // Close on Escape key
@@ -1306,15 +1306,30 @@ function CoffeeDetailModal({ coffee, onClose, onSelect }) {
             </h2>
             <ProcessBadge process={coffee.process} size="lg" />
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none", border: "none",
-              color: COLORS.sub, fontSize: 22,
-              cursor: "pointer", padding: "0 0 0 16px",
-              fontFamily: "Georgia, serif", lineHeight: 1, flexShrink: 0,
-            }}
-          >×</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            <button
+              onClick={() => onCompare(coffee)}
+              style={{
+                background: "none", fontSize: 9, fontFamily: "Georgia, serif",
+                letterSpacing: "0.14em", textTransform: "uppercase",
+                border: `1px solid ${COLORS.cardBorder}`, borderRadius: 4,
+                color: COLORS.sub, cursor: "pointer", padding: "4px 10px",
+                transition: "all 0.15s",
+              }}
+              title="Add to comparison"
+            >
+              Compare
+            </button>
+            <button
+              onClick={onClose}
+              style={{
+                background: "none", border: "none",
+                color: COLORS.sub, fontSize: 22,
+                cursor: "pointer", padding: "0 0 0 4px",
+                fontFamily: "Georgia, serif", lineHeight: 1,
+              }}
+            >×</button>
+          </div>
         </div>
 
         {/* Body — two columns on desktop, stacked on mobile */}
@@ -1921,6 +1936,166 @@ function PCAScatter() {
   );
 }
 
+// ─── Compare Radar ────────────────────────────────────────────────────────────
+
+function CompareRadar({ scoresA, scoresB, colorA, colorB, size = 220 }) {
+  const cx = size / 2, cy = size / 2, R = size * 0.35, LEVELS = 4;
+  function toXY(angle, r) {
+    return { x: cx + r * Math.cos(angle - Math.PI / 2), y: cy + r * Math.sin(angle - Math.PI / 2) };
+  }
+  function polyPts(scores) {
+    return scores.map((s, i) => {
+      const { x, y } = toXY((2 * Math.PI * i) / NUM, (s / 10) * R);
+      return `${x},${y}`;
+    }).join(" ");
+  }
+  const levelGrids = Array.from({ length: LEVELS }, (_, li) =>
+    Array.from({ length: NUM }, (__, i) => {
+      const { x, y } = toXY((2 * Math.PI * i) / NUM, ((li + 1) / LEVELS) * R);
+      return `${x},${y}`;
+    }).join(" ")
+  );
+  const dimLabelPos = DIMS.map((_, i) => toXY((2 * Math.PI * i) / NUM, R + 14));
+  const dimTickPos  = DIMS.map((_, i) => toXY((2 * Math.PI * i) / NUM, R));
+  return (
+    <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} style={{ overflow: "visible" }}>
+      <defs>
+        <filter id="cmp-glow"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      {levelGrids.map((pts, li) => (
+        <polygon key={li} points={pts} fill="none"
+          stroke={li === LEVELS - 1 ? COLORS.gridOuter : COLORS.grid}
+          strokeWidth={li === LEVELS - 1 ? 0.8 : 0.5} strokeOpacity={li === LEVELS - 1 ? 0.8 : 0.45} />
+      ))}
+      {dimTickPos.map(({ x, y }, i) => (
+        <line key={i} x1={cx} y1={cy} x2={x} y2={y}
+          stroke={DIM_COLORS[i]} strokeWidth={0.6} strokeOpacity={0.35} />
+      ))}
+      {/* Coffee A — filled */}
+      <polygon points={polyPts(scoresA)} fill={colorA + "30"} stroke={colorA} strokeWidth={1.5} filter="url(#cmp-glow)" />
+      {/* Coffee B — outlined */}
+      <polygon points={polyPts(scoresB)} fill={colorB + "18"} stroke={colorB} strokeWidth={1.5} strokeDasharray="4 2" />
+      {DIMS.map((d, i) => (
+        <text key={i} x={dimLabelPos[i].x} y={dimLabelPos[i].y + 3}
+          textAnchor="middle" fontSize={8} fill={DIM_COLORS[i]} opacity={0.8}
+          fontFamily="Georgia, serif">
+          {d}
+        </text>
+      ))}
+    </svg>
+  );
+}
+
+// ─── Comparison Modal ─────────────────────────────────────────────────────────
+
+const COMPARE_COLORS = ["#D4A843", "#A98BC7"];
+
+function ComparisonModal({ coffees: pair, onClose }) {
+  useEffect(() => {
+    function onKey(e) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const [a, b] = pair;
+
+  return (
+    <>
+      <div onClick={onClose} style={{
+        position: "fixed", inset: 0, zIndex: 600,
+        background: "rgba(0,0,0,0.8)", backdropFilter: "blur(2px)",
+        display: "flex", alignItems: "center", justifyContent: "center", padding: "20px",
+      }}>
+        <div onClick={e => e.stopPropagation()} style={{
+          background: COLORS.cardBg, border: `1px solid ${COLORS.cardBorder}`,
+          borderRadius: 10, width: "min(700px, 100%)", maxHeight: "calc(100vh - 40px)",
+          overflowY: "auto",
+        }}>
+          {/* Header */}
+          <div style={{
+            borderBottom: `1px solid ${COLORS.cardBorder}`, padding: "14px 20px",
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+          }}>
+            <span style={{ fontSize: 9, color: COLORS.sub, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+              Comparing
+            </span>
+            <button onClick={onClose} style={{
+              background: "none", border: "none", color: COLORS.sub,
+              fontSize: 22, cursor: "pointer", fontFamily: "Georgia, serif", lineHeight: 1,
+            }}>×</button>
+          </div>
+
+          {/* Radar + legend */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 20px 10px" }}>
+            <CompareRadar scoresA={a.scores} scoresB={b.scores} colorA={COMPARE_COLORS[0]} colorB={COMPARE_COLORS[1]} />
+            <div style={{ display: "flex", gap: 24, marginTop: 12 }}>
+              {[a, b].map((c, idx) => (
+                <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <svg width={20} height={10}>
+                    <line x1={0} y1={5} x2={20} y2={5}
+                      stroke={COMPARE_COLORS[idx]} strokeWidth={2}
+                      strokeDasharray={idx === 1 ? "4 2" : "none"} />
+                  </svg>
+                  <span style={{ fontSize: 10, color: COLORS.label, fontFamily: "Georgia, serif" }}>{c.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Score bars */}
+          <div style={{ padding: "10px 24px 20px" }}>
+            <div style={{ fontSize: 9, color: COLORS.sub, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 10 }}>
+              Flavor Scores
+            </div>
+            {DIMS.map((dim, i) => (
+              <div key={dim} style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 9, color: DIM_COLORS[i], letterSpacing: "0.08em", marginBottom: 3 }}>{dim}</div>
+                {[a, b].map((c, idx) => (
+                  <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                    <div style={{ width: 90, fontSize: 8.5, color: COMPARE_COLORS[idx], fontFamily: "Georgia, serif", textAlign: "right", flexShrink: 0 }}>
+                      {c.name.split(" ")[0]}
+                    </div>
+                    <div style={{ flex: 1, height: 4, background: "#2A1A08", borderRadius: 3, overflow: "hidden" }}>
+                      <div style={{
+                        height: "100%", width: `${c.scores[i] * 10}%`,
+                        background: COMPARE_COLORS[idx], borderRadius: 3, opacity: 0.85,
+                      }} />
+                    </div>
+                    <div style={{ fontSize: 9, color: COMPARE_COLORS[idx], width: 14, textAlign: "right" }}>{c.scores[i]}</div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          {/* Side-by-side info */}
+          <div style={{
+            display: "grid", gridTemplateColumns: "1fr 1fr",
+            borderTop: `1px solid ${COLORS.cardBorder}`,
+          }}>
+            {[a, b].map((c, idx) => (
+              <div key={c.name} style={{
+                padding: "16px 20px",
+                borderRight: idx === 0 ? `1px solid ${COLORS.cardBorder}` : "none",
+              }}>
+                <div style={{ fontSize: 9, color: COMPARE_COLORS[idx], letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 4 }}>
+                  {c.region}
+                </div>
+                <div style={{ fontSize: 15, color: "#F0DEB8", fontFamily: "Georgia, serif", marginBottom: 8 }}>{c.name}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                  <ProcessBadge process={c.process} size="sm" />
+                  <span style={{ fontSize: 9, color: COLORS.sub, alignSelf: "center" }}>{c.roast} roast</span>
+                </div>
+                <p style={{ margin: 0, fontSize: 10, color: COLORS.sub, fontStyle: "italic", lineHeight: 1.6 }}>{c.note}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Root Component ───────────────────────────────────────────────────────────
 
 export default function CoffeeInfographic() {
@@ -1931,6 +2106,8 @@ export default function CoffeeInfographic() {
   const [selectedCoffee, setSelectedCoffee] = useState(null);
   const [brewFilter, setBrewFilter] = useState(new Set());
   const [roastFilter, setRoastFilter] = useState(new Set());
+  const [compareTray, setCompareTray] = useState([]);
+  const [showCompare, setShowCompare] = useState(false);
   // { coffeeName: string, dimIndex: number } | null
   const [activePopover, setActivePopover] = useState(null);
 
@@ -1977,6 +2154,15 @@ export default function CoffeeInfographic() {
     (brewFilter.size === 0 || c.brewMethods.some(m => brewFilter.has(m))) &&
     (roastFilter.size === 0 || roastFilter.has(c.roast))
   );
+
+  function handleCompare(coffee) {
+    setSelectedCoffee(null);
+    setCompareTray(prev => {
+      if (prev.some(c => c.name === coffee.name)) return prev;
+      if (prev.length < 2) return [...prev, coffee];
+      return [prev[1], coffee]; // replace oldest
+    });
+  }
 
   function toggleBrew(method) {
     setBrewFilter(prev => { const n = new Set(prev); n.has(method) ? n.delete(method) : n.add(method); return n; });
@@ -2377,6 +2563,60 @@ export default function CoffeeInfographic() {
           coffee={selectedCoffee}
           onClose={() => setSelectedCoffee(null)}
           onSelect={(c) => setSelectedCoffee(c)}
+          onCompare={handleCompare}
+        />
+      )}
+
+      {/* Compare tray */}
+      {compareTray.length > 0 && !showCompare && (
+        <div style={{
+          position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 700,
+          background: "#1A0F05", borderTop: `1px solid ${COLORS.cardBorder}`,
+          padding: "10px 20px", display: "flex", alignItems: "center",
+          gap: 12, flexWrap: "wrap", justifyContent: "center",
+        }}>
+          <span style={{ fontSize: 9, color: COLORS.sub, letterSpacing: "0.16em", textTransform: "uppercase", flexShrink: 0 }}>
+            Compare
+          </span>
+          {compareTray.map((c, idx) => (
+            <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: COMPARE_COLORS[idx], flexShrink: 0 }} />
+              <span style={{ fontSize: 10, color: COLORS.label, fontFamily: "Georgia, serif" }}>{c.name}</span>
+              <button onClick={() => setCompareTray(prev => prev.filter(x => x.name !== c.name))}
+                style={{ background: "none", border: "none", color: COLORS.sub, cursor: "pointer", fontSize: 14, padding: "0 0 0 2px", lineHeight: 1 }}>
+                ×
+              </button>
+            </div>
+          ))}
+          {compareTray.length === 1 && (
+            <span style={{ fontSize: 9, color: COLORS.sub, fontStyle: "italic", fontFamily: "Georgia, serif" }}>
+              pick one more to compare
+            </span>
+          )}
+          {compareTray.length === 2 && (
+            <button
+              onClick={() => setShowCompare(true)}
+              style={{
+                fontSize: 9, fontFamily: "Georgia, serif", letterSpacing: "0.14em",
+                textTransform: "uppercase", padding: "5px 14px", borderRadius: 4,
+                border: `1px solid ${COLORS.gridOuter}`, background: `${COLORS.gridOuter}22`,
+                color: "#F0DEB8", cursor: "pointer", transition: "all 0.15s",
+              }}
+            >
+              Compare Now
+            </button>
+          )}
+          <button onClick={() => setCompareTray([])}
+            style={{ background: "none", border: "none", color: COLORS.sub, cursor: "pointer", fontSize: 9, opacity: 0.5, fontFamily: "Georgia, serif", letterSpacing: "0.1em" }}>
+            clear
+          </button>
+        </div>
+      )}
+
+      {showCompare && compareTray.length === 2 && (
+        <ComparisonModal
+          coffees={compareTray}
+          onClose={() => { setShowCompare(false); setCompareTray([]); }}
         />
       )}
     </>
