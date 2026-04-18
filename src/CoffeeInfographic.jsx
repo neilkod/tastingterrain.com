@@ -1984,10 +1984,13 @@ function CompareView() {
   const b = coffees.find(c => c.name === nameB);
 
   const selectStyle = {
+    appearance: "none", WebkitAppearance: "none",
     background: COLORS.cardBg, border: `1px solid ${COLORS.cardBorder}`,
     borderRadius: 6, color: COLORS.label, fontSize: 13,
-    fontFamily: "Georgia, serif", padding: "4px 8px", cursor: "pointer",
-    flex: "1 1 160px", maxWidth: 260, height: 32, boxSizing: "border-box",
+    fontFamily: "Georgia, serif", padding: "5px 28px 5px 10px", cursor: "pointer",
+    width: 240, boxSizing: "border-box",
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23A08C6E'/%3E%3C/svg%3E")`,
+    backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center",
   };
 
   return (
