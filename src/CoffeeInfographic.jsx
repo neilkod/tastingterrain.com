@@ -1986,8 +1986,8 @@ function CompareView() {
   const selectStyle = {
     background: COLORS.cardBg, border: `1px solid ${COLORS.cardBorder}`,
     borderRadius: 6, color: COLORS.label, fontSize: 13,
-    fontFamily: "Georgia, serif", padding: "8px 12px", cursor: "pointer",
-    flex: "1 1 160px", maxWidth: 260,
+    fontFamily: "Georgia, serif", padding: "4px 8px", cursor: "pointer",
+    flex: "1 1 160px", maxWidth: 260, height: 32, boxSizing: "border-box",
   };
 
   return (
