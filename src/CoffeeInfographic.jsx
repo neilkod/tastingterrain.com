@@ -1217,7 +1217,19 @@ function RoastBar({ roast }) {
 
 // ─── Coffee Detail Modal ──────────────────────────────────────────────────────
 
-function CoffeeDetailModal({ coffee, onClose }) {
+function getSimilar(coffee, n = 3) {
+  return coffees
+    .filter(c => c.name !== coffee.name)
+    .map(c => ({
+      coffee: c,
+      dist: Math.sqrt(c.scores.reduce((sum, s, i) => sum + (s - coffee.scores[i]) ** 2, 0)),
+    }))
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, n)
+    .map(d => d.coffee);
+}
+
+function CoffeeDetailModal({ coffee, onClose, onSelect }) {
   // Close on Escape key
   useEffect(() => {
     function onKey(e) { if (e.key === "Escape") onClose(); }
@@ -1401,6 +1413,48 @@ function CoffeeDetailModal({ coffee, onClose }) {
                 ))}
               </div>
             </div>
+
+            {/* Separator */}
+            <div style={{ height: 1, background: COLORS.cardBorder }} />
+
+            {/* Similar origins */}
+            {(() => {
+              const similar = getSimilar(coffee);
+              return (
+                <div>
+                  <div style={{
+                    fontSize: 9, color: COLORS.sub, letterSpacing: "0.2em",
+                    textTransform: "uppercase", marginBottom: 8,
+                  }}>
+                    Similar Origins
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {similar.map(c => {
+                      const domIdx = c.scores.indexOf(Math.max(...c.scores));
+                      return (
+                        <button
+                          key={c.name}
+                          onClick={() => onSelect(c)}
+                          style={{
+                            fontSize: 10, fontFamily: "Georgia, serif",
+                            letterSpacing: "0.04em", padding: "4px 12px",
+                            borderRadius: 20, cursor: "pointer",
+                            border: `1px solid ${DIM_COLORS[domIdx]}55`,
+                            background: `${DIM_COLORS[domIdx]}18`,
+                            color: COLORS.label, transition: "all 0.15s",
+                          }}
+                        >
+                          {c.name}
+                          <span style={{ fontSize: 8.5, color: COLORS.sub, marginLeft: 5 }}>
+                            {c.note.split(" · ")[0]}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Separator */}
             <div style={{ height: 1, background: COLORS.cardBorder }} />
@@ -2275,6 +2329,7 @@ export default function CoffeeInfographic() {
         <CoffeeDetailModal
           coffee={selectedCoffee}
           onClose={() => setSelectedCoffee(null)}
+          onSelect={(c) => setSelectedCoffee(c)}
         />
       )}
     </>
