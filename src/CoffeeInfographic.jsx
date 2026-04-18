@@ -459,7 +459,7 @@ function CoffeeCard({ coffee, index, activePopoverDim, onDotClick, onClosePopove
 }
 
 // ─── Tag Index (inverted: tag → coffees, grouped by dimension) ───────────────
-// Each entry: [ tag string, coffee[] ] sorted by number of coffees descending
+// Each entry: [ tag string, coffee[] ] sorted alphabetically
 
 const TAG_INDEX = DIMS.map((_, dimIdx) => {
   const map = new Map();
@@ -471,7 +471,7 @@ const TAG_INDEX = DIMS.map((_, dimIdx) => {
       map.get(tag).push(coffee);
     });
   });
-  return Array.from(map.entries()).sort((a, b) => b[1].length - a[1].length);
+  return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 });
 
 // Process index: process method → coffees[]
