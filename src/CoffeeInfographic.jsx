@@ -1829,6 +1829,7 @@ export default function CoffeeInfographic() {
   const [showMethodology, setShowMethodology] = useState(false);
   const [selectedCoffee, setSelectedCoffee] = useState(null);
   const [brewFilter, setBrewFilter] = useState(new Set());
+  const [roastFilter, setRoastFilter] = useState(new Set());
   // { coffeeName: string, dimIndex: number } | null
   const [activePopover, setActivePopover] = useState(null);
 
@@ -1871,17 +1872,22 @@ export default function CoffeeInfographic() {
             : a.scores[sortDim] - b.scores[sortDim]
         );
 
-  const filteredCoffees = brewFilter.size === 0
-    ? sortedCoffees
-    : sortedCoffees.filter(c => c.brewMethods.some(m => brewFilter.has(m)));
+  const filteredCoffees = sortedCoffees.filter(c =>
+    (brewFilter.size === 0 || c.brewMethods.some(m => brewFilter.has(m))) &&
+    (roastFilter.size === 0 || roastFilter.has(c.roast))
+  );
 
   function toggleBrew(method) {
-    setBrewFilter(prev => {
-      const next = new Set(prev);
-      next.has(method) ? next.delete(method) : next.add(method);
-      return next;
-    });
+    setBrewFilter(prev => { const n = new Set(prev); n.has(method) ? n.delete(method) : n.add(method); return n; });
   }
+  function toggleRoast(level) {
+    setRoastFilter(prev => { const n = new Set(prev); n.has(level) ? n.delete(level) : n.add(level); return n; });
+  }
+  function clearAllFilters() {
+    setBrewFilter(new Set());
+    setRoastFilter(new Set());
+  }
+  const anyFilterActive = brewFilter.size > 0 || roastFilter.size > 0;
 
   return (
     <>
@@ -2106,62 +2112,71 @@ export default function CoffeeInfographic() {
           ))}
         </div>
 
-        {/* Brew method filter */}
+        {/* Brew method + roast level filters */}
         {view === "cards" && (
-          <div style={{ marginBottom: 20 }}>
-            <div style={{
-              display: "flex", flexWrap: "wrap", alignItems: "center",
-              gap: 6, justifyContent: "center",
-            }}>
-              <span style={{
-                fontSize: 9, color: COLORS.sub, letterSpacing: "0.14em",
-                textTransform: "uppercase", fontFamily: "Georgia, serif",
-                marginRight: 2, flexShrink: 0,
-              }}>
-                Brew Method
-              </span>
-              {["Pour Over","Chemex","AeroPress","French Press","Drip","Espresso","Cold Brew","Moka Pot","Ibrik / Turkish","Phin Filter"].map(method => {
-                const active = brewFilter.has(method);
-                return (
-                  <button
-                    key={method}
-                    onClick={() => toggleBrew(method)}
-                    style={{
-                      fontSize: 9, fontFamily: "Georgia, serif",
-                      letterSpacing: "0.06em",
-                      padding: "3px 10px", borderRadius: 12,
-                      border: `1px solid ${active ? COLORS.gridOuter : COLORS.cardBorder}`,
-                      background: active ? `${COLORS.gridOuter}22` : "transparent",
-                      color: active ? "#F0DEB8" : COLORS.sub,
-                      cursor: "pointer", transition: "all 0.15s",
-                    }}
-                  >
-                    {method}
-                  </button>
-                );
-              })}
-              {brewFilter.size > 0 && (
+          <div style={{ marginBottom: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+            {[
+              {
+                label: "Brew Method",
+                items: ["Pour Over","Chemex","AeroPress","French Press","Drip","Espresso","Cold Brew","Moka Pot","Ibrik / Turkish","Phin Filter"],
+                filter: brewFilter,
+                toggle: toggleBrew,
+              },
+              {
+                label: "Roast Level",
+                items: ["Light","Light–Medium","Medium","Medium–Dark","Dark"],
+                filter: roastFilter,
+                toggle: toggleRoast,
+              },
+            ].map(({ label, items, filter, toggle }) => (
+              <div key={label} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+                <span style={{
+                  fontSize: 9, color: COLORS.sub, letterSpacing: "0.14em",
+                  textTransform: "uppercase", fontFamily: "Georgia, serif",
+                  flexShrink: 0, minWidth: 76,
+                }}>
+                  {label}
+                </span>
+                {items.map(item => {
+                  const active = filter.has(item);
+                  return (
+                    <button
+                      key={item}
+                      onClick={() => toggle(item)}
+                      style={{
+                        fontSize: 9, fontFamily: "Georgia, serif", letterSpacing: "0.06em",
+                        padding: "3px 10px", borderRadius: 12,
+                        border: `1px solid ${active ? COLORS.gridOuter : COLORS.cardBorder}`,
+                        background: active ? `${COLORS.gridOuter}22` : "transparent",
+                        color: active ? "#F0DEB8" : COLORS.sub,
+                        cursor: "pointer", transition: "all 0.15s",
+                      }}
+                    >
+                      {item}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+            {anyFilterActive && (
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 2 }}>
+                <span style={{
+                  fontSize: 9, color: COLORS.sub, fontFamily: "Georgia, serif", fontStyle: "italic",
+                }}>
+                  {filteredCoffees.length} of {coffees.length} origins
+                </span>
                 <button
-                  onClick={() => setBrewFilter(new Set())}
+                  onClick={clearAllFilters}
                   style={{
-                    fontSize: 9, fontFamily: "Georgia, serif",
-                    letterSpacing: "0.06em", padding: "3px 10px",
-                    borderRadius: 12, border: `1px solid ${COLORS.cardBorder}`,
+                    fontSize: 9, fontFamily: "Georgia, serif", letterSpacing: "0.06em",
+                    padding: "2px 10px", borderRadius: 12,
+                    border: `1px solid ${COLORS.cardBorder}`,
                     background: "transparent", color: COLORS.sub,
                     cursor: "pointer", opacity: 0.6,
                   }}
                 >
-                  clear
+                  clear all
                 </button>
-              )}
-            </div>
-            {brewFilter.size > 0 && (
-              <div style={{
-                textAlign: "center", marginTop: 8,
-                fontSize: 9, color: COLORS.sub,
-                fontFamily: "Georgia, serif", fontStyle: "italic",
-              }}>
-                {filteredCoffees.length} of {coffees.length} origins
               </div>
             )}
           </div>
