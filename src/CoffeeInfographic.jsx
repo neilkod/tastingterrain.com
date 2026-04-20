@@ -1607,13 +1607,14 @@ function computePCA2D(vectors) {
 
 const { projected: PCA_COORDS, pc1: PC1_LOAD, pc2: PC2_LOAD } = computePCA2D(coffees.map(c => c.scores));
 
-function pcAxisLabel(loadings) {
-  return loadings
-    .map((v, i) => ({ i, abs: Math.abs(v), sign: v >= 0 }))
+function pcAxisLabels(loadings) {
+  const sorted = loadings
+    .map((v, i) => ({ i, v, abs: Math.abs(v) }))
     .sort((a, b) => b.abs - a.abs)
-    .slice(0, 2)
-    .map(({ i, sign }) => `${sign ? "+" : "−"}${DIMS[i]}`)
-    .join(" / ");
+    .slice(0, 2);
+  const pos = sorted.filter(d => d.v >= 0).map(d => DIMS[d.i]).join(" · ") || "mixed";
+  const neg = sorted.filter(d => d.v < 0).map(d => DIMS[d.i]).join(" · ") || "mixed";
+  return { pos, neg };
 }
 
 // ─── Discover View ────────────────────────────────────────────────────────────
@@ -1803,7 +1804,7 @@ function DiscoverView({ onSelectCoffee }) {
 
 function PCAScatter() {
   const [showExplainer, setShowExplainer] = useState(false);
-  const W = 780, H = 500, PAD = 44;
+  const W = 780, H = 500, PAD = 60;
 
   const xs = PCA_COORDS.map(p => p[0]);
   const ys = PCA_COORDS.map(p => p[1]);
@@ -1883,8 +1884,20 @@ function PCAScatter() {
         {/* Grid */}
         <line x1={PAD} y1={H/2} x2={W-PAD} y2={H/2} stroke={COLORS.grid} strokeWidth={0.5} strokeDasharray="3 3" />
         <line x1={W/2} y1={PAD} x2={W/2} y2={H-PAD} stroke={COLORS.grid} strokeWidth={0.5} strokeDasharray="3 3" />
-        <text x={W-PAD+6} y={H/2+4}  fill={COLORS.sub} fontSize={8} textAnchor="start">{pcAxisLabel(PC1_LOAD)}</text>
-        <text x={W/2}     y={PAD-10} fill={COLORS.sub} fontSize={8} textAnchor="middle">{pcAxisLabel(PC2_LOAD)}</text>
+        {/* Horizontal axis labels — both ends */}
+        <text x={W-PAD+8} y={H/2+4} fill={COLORS.label} fontSize={8.5} textAnchor="start" fontStyle="italic">
+          {pcAxisLabels(PC1_LOAD).pos} →
+        </text>
+        <text x={PAD-8} y={H/2+4} fill={COLORS.label} fontSize={8.5} textAnchor="end" fontStyle="italic">
+          ← {pcAxisLabels(PC1_LOAD).neg}
+        </text>
+        {/* Vertical axis labels — both ends */}
+        <text x={W/2} y={PAD-14} fill={COLORS.label} fontSize={8.5} textAnchor="middle" fontStyle="italic">
+          {pcAxisLabels(PC2_LOAD).pos} ↑
+        </text>
+        <text x={W/2} y={H-PAD+18} fill={COLORS.label} fontSize={8.5} textAnchor="middle" fontStyle="italic">
+          ↓ {pcAxisLabels(PC2_LOAD).neg}
+        </text>
 
         {/* Points — colored by dominant flavor dimension */}
         {pts.map((pt, i) => {
@@ -1900,7 +1913,7 @@ function PCAScatter() {
               />
               <text
                 x={pt.cx + 8} y={pt.cy + 4}
-                fill={COLORS.sub} fontSize={8}
+                fill="#F0DEB8" fontSize={7.5} fillOpacity={0.6}
                 pointerEvents="none"
               >
                 {coffee.name.split(" ")[0]}
