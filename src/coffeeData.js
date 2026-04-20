@@ -1,3 +1,25 @@
+// Data model — each entry in the coffees array has this shape:
+//
+// {
+//   name: string           — display name of the origin
+//   region: string         — geographic region (e.g. "East Africa")
+//   roast: string          — reference roast level (e.g. "Light–Medium")
+//   process: string        — processing method (e.g. "Washed", "Natural")
+//   note: string           — short tasting note shown on the card (3 terms)
+//   scores: number[6]      — flavor scores 1–10, in DIMS order:
+//                            [Fruity, Floral, Sweet, Nutty, Spicy, Earthy]
+//   brewMethods: string[]  — recommended brew methods for this origin
+//   cultivars: string[]    — notable cultivars/varieties grown at this origin
+//   highlights: Array[6]   — one entry per dimension, in DIMS order.
+//                            null means that dimension is not a defining
+//                            characteristic of this origin (not that it's
+//                            absent). Non-null entries have:
+//     {
+//       tags: string[]     — flavor tag chips shown in the UI
+//       note: string       — curated tasting note explaining the score
+//     }
+// }
+
 export const coffees = [
   {
     name: "Ethiopian",
