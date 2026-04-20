@@ -9,12 +9,12 @@ An interactive flavor infographic comparing 32 single-origin coffees across six 
 ## What it does
 
 ### Origins
-The default view. Each coffee origin is shown as a card with a radar chart visualizing its six-dimension flavor profile. Click a dimension dot to reveal curated tasting notes — specific cultivars, altitudes, processing stations, and flavor science behind that score. Click anywhere on the card to open a full detail view with roast level, processing method, and recommended brew methods. The detail view also shows a **Similar Origins** section — the three closest coffees by Euclidean distance across all six flavor dimensions.
+The default view. Each coffee origin is shown as a card with a radar chart visualizing its six-dimension flavor profile. Click a dimension dot to reveal curated tasting notes — specific cultivars, altitudes, processing stations, and flavor science behind that score. Click anywhere on the card to open a full detail view with roast level, processing method, cultivars, and recommended brew methods. The detail view also shows a **Similar Origins** section — the three closest coffees by Euclidean distance across all six flavor dimensions.
 
 Cards can be filtered by brew method and roast level (multi-select chips, stackable) and sorted by any flavor dimension using the legend at the top of the page.
 
 ### Compare
-A dedicated comparison view. Select any two origins from alpha-sorted dropdowns and instantly see an overlaid dual radar chart, a side-by-side score bar for each flavor dimension, and info panels showing each origin's region, roast, and processing method. Designed to encourage exploration across all 32 origins.
+A dedicated comparison view. Select any two origins from alpha-sorted dropdowns and instantly see an overlaid dual radar chart, a side-by-side score bar for each flavor dimension, and info panels showing each origin's region, roast, processing method, and cultivars. Designed to encourage exploration across all 32 origins.
 
 ### Heatmap
 A grid view of all 32 origins scored across all six dimensions simultaneously. Useful for comparing origins side-by-side or spotting which coffees lead in a particular dimension. Click any score cell to see the same flavor notes as the card dots. The column headers are clickable chips — hover to see a mini radar for that origin.
@@ -96,7 +96,7 @@ Scores and tasting notes were derived from a synthesis of:
 - **Cup of Excellence** auction reports and jury tasting notes (Ethiopia, Colombia, Peru, Honduras, Guatemala, Rwanda, Burundi)
 - **Coffee Review** (coffeereview.com) — over 10,000 published reviews, specifically referenced for Brazil, Kona, Kenyan SL28/SL34, and PNG Sigri Estate lots
 - **Sweet Maria's** green coffee library — particularly for Yemen, Ethiopia, and Sumatra processing descriptions
-- **World Coffee Research Variety Catalog** — varietal notes for Geisha, SL28, SL34, Bourbon Amarelo, Typica, and others
+- **World Coffee Research Variety Catalog** — primary source for cultivar data; varietal notes for Geisha, SL28, SL34, Bourbon Amarelo, Typica, Pacamara, and others
 - **Intelligentsia Coffee** and **Blue Bottle Coffee** published lot notes for Burundi, Rwanda, and Tanzania
 - **Scott Agricultural Laboratories** historical records (Kenyan SL-series varieties)
 - **Perfect Daily Grind** origin guides for Mexico, Vietnam, and Central America
