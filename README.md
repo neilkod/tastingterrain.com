@@ -20,7 +20,7 @@ A dedicated comparison view. Select any two origins from alpha-sorted dropdowns 
 A grid view of all 32 origins scored across all six dimensions simultaneously. Useful for comparing origins side-by-side or spotting which coffees lead in a particular dimension. Click any score cell to see the same flavor notes as the card dots. The column headers are clickable chips — hover to see a mini radar for that origin.
 
 ### Flavor Map
-A PCA (Principal Component Analysis) scatter plot that reduces the six-dimensional flavor space down to two axes and plots all 32 origins in it. Origins that cluster together have similar flavor profiles; outliers are genuinely unique. Points are colored by each coffee's dominant flavor dimension. A `?` toggle explains the chart in plain English for readers unfamiliar with PCA.
+A PCA (Principal Component Analysis) scatter plot that reduces the six-dimensional flavor space down to two axes and plots all 32 origins in it. Origins that cluster together have similar flavor profiles; outliers are genuinely unique. Points are colored by growing region. Hover any dot to see a tooltip with the origin's name, region, tasting note, and all six flavor scores. A `?` toggle explains the chart in plain English for readers unfamiliar with PCA.
 
 The two axes are derived automatically from the data: the labels (shown on each axis) reflect which flavor dimensions contribute most to the variance captured by that component.
 
