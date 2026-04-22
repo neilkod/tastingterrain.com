@@ -1893,8 +1893,60 @@ function DiscoverView({ onSelectCoffee }) {
 
 // ─── Flavor Map (PCA Scatter) ─────────────────────────────────────────────────
 
+function PCATooltip({ coffee, x, y }) {
+  const TW = 200;
+  const TH = 170;
+  const vw = document.documentElement.clientWidth;
+  const vh = document.documentElement.clientHeight;
+  const left = x + 14 + TW > vw - 8 ? x - TW - 14 : x + 14;
+  const top  = Math.min(y - 20, vh - TH - 8);
+  const regionColor = REGION_COLORS[coffee.region] ?? COLORS.label;
+  return (
+    <div style={{
+      position: "fixed", left, top, width: TW,
+      background: "#1F1409",
+      border: `1px solid ${COLORS.gridOuter}55`,
+      borderRadius: 8, padding: "10px 12px",
+      boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
+      fontFamily: "Georgia, serif",
+      pointerEvents: "none", zIndex: 300,
+      animation: "popoverIn 0.1s ease both",
+    }}>
+      <div style={{ fontSize: 11, color: "#F0DEB8", letterSpacing: "0.04em", marginBottom: 3 }}>
+        {coffee.name}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
+        <div style={{ width: 6, height: 6, borderRadius: "50%", background: regionColor, flexShrink: 0 }} />
+        <span style={{ fontSize: 9, color: COLORS.sub, letterSpacing: "0.1em" }}>{coffee.region}</span>
+      </div>
+      <div style={{ fontSize: 9, color: COLORS.label, fontStyle: "italic", marginBottom: 8, lineHeight: 1.5 }}>
+        {coffee.note}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {DIMS.map((dim, i) => (
+          <div key={dim} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ fontSize: 8, color: DIM_COLORS[i], width: 34, flexShrink: 0, letterSpacing: "0.04em" }}>
+              {dim}
+            </span>
+            <div style={{ flex: 1, height: 3, background: COLORS.grid, borderRadius: 2, overflow: "hidden" }}>
+              <div style={{
+                width: `${coffee.scores[i] * 10}%`, height: "100%",
+                background: DIM_COLORS[i], borderRadius: 2, opacity: 0.85,
+              }} />
+            </div>
+            <span style={{ fontSize: 8, color: DIM_COLORS[i], width: 12, textAlign: "right", opacity: 0.8 }}>
+              {coffee.scores[i]}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PCAScatter() {
   const [showExplainer, setShowExplainer] = useState(false);
+  const [tooltip, setTooltip] = useState(null);
   const W = 780, H = 500, PAD = 60;
 
   const xs = PCA_COORDS.map(p => p[0]);
@@ -1997,16 +2049,21 @@ function PCAScatter() {
         {pts.map((pt, i) => {
           const coffee = coffees[i];
           const fill   = REGION_COLORS[coffee.region] ?? COLORS.label;
+          const isHot  = tooltip?.coffee === coffee;
           return (
-            <g key={i}>
+            <g key={i} style={{ cursor: "default" }}
+              onMouseEnter={(e) => setTooltip({ coffee, x: e.clientX, y: e.clientY })}
+              onMouseMove={(e)  => setTooltip(t => t ? { ...t, x: e.clientX, y: e.clientY } : t)}
+              onMouseLeave={() => setTooltip(null)}
+            >
               <circle
                 cx={pt.cx} cy={pt.cy} r={5.5}
-                fill={fill} fillOpacity={0.7}
-                stroke={fill} strokeWidth={0.8} strokeOpacity={0.5}
+                fill={fill} fillOpacity={isHot ? 1 : 0.7}
+                stroke={fill} strokeWidth={isHot ? 1.5 : 0.8} strokeOpacity={isHot ? 0.9 : 0.5}
               />
               <text
                 x={labelPos[i].x} y={labelPos[i].y}
-                fill="#F0DEB8" fontSize={7.5} fillOpacity={0.6}
+                fill="#F0DEB8" fontSize={7.5} fillOpacity={isHot ? 0.95 : 0.6}
                 textAnchor={labelPos[i].anchor}
                 pointerEvents="none"
               >
@@ -2016,6 +2073,8 @@ function PCAScatter() {
           );
         })}
       </svg>
+
+      {tooltip && <PCATooltip coffee={tooltip.coffee} x={tooltip.x} y={tooltip.y} />}
 
       {/* Region legend */}
       <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 14, marginTop: 10 }}>
