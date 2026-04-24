@@ -1947,6 +1947,7 @@ function PCATooltip({ coffee, x, y }) {
 function PCAScatter() {
   const [showExplainer, setShowExplainer] = useState(false);
   const [tooltip, setTooltip] = useState(null);
+  const [colorBy, setColorBy] = useState("region");
   const W = 780, H = 500, PAD = 60;
 
   const xs = PCA_COORDS.map(p => p[0]);
@@ -1988,9 +1989,24 @@ function PCAScatter() {
             onMouseLeave={e => { e.currentTarget.style.borderColor = showExplainer ? COLORS.gridOuter : COLORS.cardBorder; e.currentTarget.style.color = showExplainer ? COLORS.label : COLORS.sub; }}
           >?</button>
         </div>
-        <p style={{ fontSize: 10, color: COLORS.sub, fontStyle: "italic", fontFamily: "Georgia, serif", margin: 0 }}>
+        <p style={{ fontSize: 10, color: COLORS.sub, fontStyle: "italic", fontFamily: "Georgia, serif", margin: "0 0 10px" }}>
           Coffees plotted by flavor similarity — the closer together, the more alike they taste
         </p>
+
+        {/* Color-by toggle */}
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 7, marginBottom: 4 }}>
+          <span style={{ fontSize: 9, color: COLORS.sub, fontFamily: "Georgia, serif" }}>Color by</span>
+          {["region", "process"].map(mode => (
+            <button key={mode} onClick={() => setColorBy(mode)} style={{
+              fontSize: 9, fontFamily: "Georgia, serif", letterSpacing: "0.08em",
+              textTransform: "capitalize", cursor: "pointer",
+              background: "none", borderRadius: 12, padding: "2px 10px",
+              border: `1px solid ${colorBy === mode ? COLORS.gridOuter : COLORS.cardBorder}`,
+              color: colorBy === mode ? COLORS.label : COLORS.sub,
+              transition: "all 0.15s",
+            }}>{mode}</button>
+          ))}
+        </div>
 
         {showExplainer && (
           <div style={{
@@ -2012,10 +2028,10 @@ function PCAScatter() {
                 what matter.
               </p>
               <p style={{ margin: 0 }}>
-                Dot colors show each coffee's <em style={{ color: "#F0DEB8" }}>growing region</em>.
-                When coffees from the same region cluster together, it means geography and processing
-                traditions produce similar flavor profiles — when they scatter, it means that origin
-                is genuinely distinct from its neighbors.
+                Use the <em style={{ color: "#F0DEB8" }}>Color by</em> toggle to switch between
+                coloring dots by growing region or by processing method. When coffees of the same
+                color cluster together, geography or process is driving that similarity — when they
+                scatter, the origin is genuinely distinct from its peers.
               </p>
             </div>
           </div>
@@ -2048,7 +2064,9 @@ function PCAScatter() {
         {/* Points — colored by region */}
         {pts.map((pt, i) => {
           const coffee = coffees[i];
-          const fill   = REGION_COLORS[coffee.region] ?? COLORS.label;
+          const fill   = colorBy === "region"
+            ? (REGION_COLORS[coffee.region] ?? COLORS.label)
+            : (PROCESS_COLORS[coffee.process]?.text ?? COLORS.label);
           const isHot  = tooltip?.coffee === coffee;
           return (
             <g key={i} style={{ cursor: "default" }}
@@ -2076,14 +2094,22 @@ function PCAScatter() {
 
       {tooltip && <PCATooltip coffee={tooltip.coffee} x={tooltip.x} y={tooltip.y} />}
 
-      {/* Region legend */}
+      {/* Legend */}
       <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 14, marginTop: 10 }}>
-        {Object.entries(REGION_COLORS).map(([region, color]) => (
-          <div key={region} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, opacity: 0.85 }} />
-            <span style={{ fontSize: 8.5, color: COLORS.sub, fontFamily: "Georgia, serif" }}>{region}</span>
-          </div>
-        ))}
+        {colorBy === "region"
+          ? Object.entries(REGION_COLORS).map(([label, color]) => (
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, opacity: 0.85 }} />
+                <span style={{ fontSize: 8.5, color: COLORS.sub, fontFamily: "Georgia, serif" }}>{label}</span>
+              </div>
+            ))
+          : Object.entries(PROCESS_COLORS).map(([label, c]) => (
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: c.text, opacity: 0.85 }} />
+                <span style={{ fontSize: 8.5, color: COLORS.sub, fontFamily: "Georgia, serif" }}>{label}</span>
+              </div>
+            ))
+        }
       </div>
     </div>
   );
