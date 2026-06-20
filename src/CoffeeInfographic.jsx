@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { coffees } from "./coffeeData";
 
 const DIMS = ["Fruity", "Floral", "Sweet", "Nutty", "Spicy", "Earthy"];
@@ -385,14 +385,19 @@ function ProcessBadge({ process, size = "sm" }) {
 
 // ─── Coffee Card ──────────────────────────────────────────────────────────────
 
-function CoffeeCard({ coffee, index, activePopoverDim, onDotClick, onClosePopover, onSelect }) {
+const CoffeeCard = memo(function CoffeeCard({ coffee, index, activePopoverDim, onDotClick, onClosePopover, onSelect }) {
   const [hovered, setHovered] = useState(false);
+  // Entry animation runs only on first mount. The class self-removes on
+  // animationend so re-renders (filtering, popover toggles) never replay it.
+  const [entering, setEntering] = useState(true);
 
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={onSelect}
+      onClick={() => onSelect(coffee)}
+      className={entering ? "coffee-card card-enter" : "coffee-card"}
+      onAnimationEnd={(e) => { if (e.target === e.currentTarget) setEntering(false); }}
       style={{
         position: "relative",
         background: hovered ? "#231508" : COLORS.cardBg,
@@ -406,7 +411,8 @@ function CoffeeCard({ coffee, index, activePopoverDim, onDotClick, onClosePopove
         transition: "all 0.3s ease",
         boxShadow: hovered ? "0 4px 24px rgba(212,168,67,0.12)" : "none",
         cursor: "pointer",
-        animation: `fadeIn 0.5s ease ${index * 0.06}s both`,
+        // Cap the stagger at ~8 items so the grid settles in <0.5s.
+        animationDelay: `${Math.min(index, 8) * 0.05}s`,
       }}
     >
       <div style={{ textAlign: "center" }}>
@@ -428,7 +434,7 @@ function CoffeeCard({ coffee, index, activePopoverDim, onDotClick, onClosePopove
       <RadarChart
         scores={coffee.scores}
         size={112}
-        onDotClick={onDotClick}
+        onDotClick={(dimIndex) => onDotClick(coffee.name, dimIndex)}
         activeDim={activePopoverDim}
       />
 
@@ -453,10 +459,12 @@ function CoffeeCard({ coffee, index, activePopoverDim, onDotClick, onClosePopove
             <div style={{ flex: 1, height: 2, background: "#2A1A08", borderRadius: 2, overflow: "hidden" }}>
               <div style={{
                 height: "100%",
-                width: `${coffee.scores[i] * 10}%`,
+                width: "100%",
+                transform: `scaleX(${coffee.scores[i] / 10})`,
+                transformOrigin: "left",
                 background: DIM_COLORS[i],
                 borderRadius: 2, opacity: 0.85,
-                transition: "width 0.8s ease",
+                transition: "transform 0.8s ease",
               }} />
             </div>
             <div style={{
@@ -479,7 +487,7 @@ function CoffeeCard({ coffee, index, activePopoverDim, onDotClick, onClosePopove
       )}
     </div>
   );
-}
+});
 
 // ─── Tag Index (inverted: tag → coffees, grouped by dimension) ───────────────
 // Each entry: [ tag string, coffee[] ] sorted alphabetically
@@ -914,13 +922,117 @@ function HeatmapTooltip({ coffee, dimIndex, anchorRect }) {
   );
 }
 
+// One score cell owns its own hover state so hovering it doesn't re-render the
+// whole 224-cell grid. It reports the tooltip up via the stable onShow/onHide
+// callbacks (which never change identity), so HeatmapRow stays memoized.
+const HeatmapCell = memo(function HeatmapCell({ coffee, dimIndex, score, onShow, onHide }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      onMouseEnter={(e) => { setHovered(true); onShow(coffee, dimIndex, e.currentTarget.getBoundingClientRect()); }}
+      onMouseLeave={() => { setHovered(false); onHide(); }}
+      style={{
+        position: "relative",
+        borderTop: `1px solid ${COLORS.cardBorder}`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 3,
+        overflow: "hidden",
+        minHeight: 44,
+        cursor: "default",
+      }}
+    >
+      {/* Color fill */}
+      <div style={{
+        position: "absolute",
+        inset: 0,
+        background: DIM_COLORS[dimIndex],
+        opacity: 0.06 + (score / 10) * 0.74,
+        transition: "opacity 0.2s",
+      }} />
+      {/* Hover highlight ring */}
+      {hovered && (
+        <div style={{
+          position: "absolute", inset: 0,
+          border: `1px solid ${DIM_COLORS[dimIndex]}`,
+          borderRadius: 3,
+          pointerEvents: "none",
+        }} />
+      )}
+      {/* Score */}
+      <span style={{
+        position: "relative",
+        zIndex: 1,
+        fontSize: 12,
+        fontFamily: "Georgia, serif",
+        color: score >= 6 ? "#F0DEB8" : COLORS.sub,
+        opacity: 0.9,
+      }}>
+        {score}
+      </span>
+    </div>
+  );
+});
+
+const HeatmapRow = memo(function HeatmapRow({ coffee, onShow, onHide }) {
+  return (
+    <>
+      {/* Name cell */}
+      <div style={{
+        padding: "10px 10px 10px 4px",
+        borderTop: `1px solid ${COLORS.cardBorder}`,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        gap: 3,
+      }}>
+        <div style={{
+          fontSize: 12, color: "#F0DEB8",
+          fontFamily: "Georgia, serif", letterSpacing: "0.03em",
+          lineHeight: 1.2,
+        }}>
+          {coffee.name}
+        </div>
+        <div style={{
+          fontSize: 9, color: COLORS.sub,
+          letterSpacing: "0.15em", textTransform: "uppercase",
+        }}>
+          {coffee.region}
+        </div>
+        <div style={{
+          fontSize: 9, color: COLORS.sub,
+          fontStyle: "italic", fontFamily: "Georgia, serif",
+          letterSpacing: "0.02em", lineHeight: 1.4, opacity: 0.8,
+        }}>
+          {coffee.note}
+        </div>
+      </div>
+
+      {/* Score cells */}
+      {coffee.scores.map((score, i) => (
+        <HeatmapCell
+          key={coffee.name + "-" + i}
+          coffee={coffee}
+          dimIndex={i}
+          score={score}
+          onShow={onShow}
+          onHide={onHide}
+        />
+      ))}
+    </>
+  );
+});
+
 function HeatmapView({ coffees, sortDim, onDimClick, sortDir }) {
   const [tooltip, setTooltip] = useState(null);
   // tooltip: { coffee, dimIndex, anchorRect } | null
 
-  function handleCellEnter(e, coffee, i) {
-    setTooltip({ coffee, dimIndex: i, anchorRect: e.currentTarget.getBoundingClientRect() });
-  }
+  // Stable callbacks so memoized rows/cells never re-render on tooltip changes.
+  const handleShow = useCallback((coffee, dimIndex, anchorRect) => {
+    setTooltip({ coffee, dimIndex, anchorRect });
+  }, []);
+  const handleHide = useCallback(() => setTooltip(null), []);
 
   return (
     <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
@@ -964,90 +1076,12 @@ function HeatmapView({ coffees, sortDim, onDimClick, sortDir }) {
 
         {/* Data rows */}
         {coffees.map((coffee) => (
-          <>
-            {/* Name cell */}
-            <div
-              key={coffee.name + "-label"}
-              style={{
-                padding: "10px 10px 10px 4px",
-                borderTop: `1px solid ${COLORS.cardBorder}`,
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
-                gap: 3,
-              }}
-            >
-              <div style={{
-                fontSize: 12, color: "#F0DEB8",
-                fontFamily: "Georgia, serif", letterSpacing: "0.03em",
-                lineHeight: 1.2,
-              }}>
-                {coffee.name}
-              </div>
-              <div style={{
-                fontSize: 9, color: COLORS.sub,
-                letterSpacing: "0.15em", textTransform: "uppercase",
-              }}>
-                {coffee.region}
-              </div>
-              <div style={{
-                fontSize: 9, color: COLORS.sub,
-                fontStyle: "italic", fontFamily: "Georgia, serif",
-                letterSpacing: "0.02em", lineHeight: 1.4, opacity: 0.8,
-              }}>
-                {coffee.note}
-              </div>
-            </div>
-
-            {/* Score cells */}
-            {coffee.scores.map((score, i) => (
-              <div
-                key={coffee.name + "-" + i}
-                onMouseEnter={(e) => handleCellEnter(e, coffee, i)}
-                onMouseLeave={() => setTooltip(null)}
-                style={{
-                  position: "relative",
-                  borderTop: `1px solid ${COLORS.cardBorder}`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: 3,
-                  overflow: "hidden",
-                  minHeight: 44,
-                  cursor: "default",
-                }}
-              >
-                {/* Color fill */}
-                <div style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: DIM_COLORS[i],
-                  opacity: 0.06 + (score / 10) * 0.74,
-                  transition: "opacity 0.2s",
-                }} />
-                {/* Hover highlight ring */}
-                {tooltip?.coffee.name === coffee.name && tooltip?.dimIndex === i && (
-                  <div style={{
-                    position: "absolute", inset: 0,
-                    border: `1px solid ${DIM_COLORS[i]}`,
-                    borderRadius: 3,
-                    pointerEvents: "none",
-                  }} />
-                )}
-                {/* Score */}
-                <span style={{
-                  position: "relative",
-                  zIndex: 1,
-                  fontSize: 12,
-                  fontFamily: "Georgia, serif",
-                  color: score >= 6 ? "#F0DEB8" : COLORS.sub,
-                  opacity: 0.9,
-                }}>
-                  {score}
-                </span>
-              </div>
-            ))}
-          </>
+          <HeatmapRow
+            key={coffee.name}
+            coffee={coffee}
+            onShow={handleShow}
+            onHide={handleHide}
+          />
         ))}
       </div>
 
@@ -1375,10 +1409,12 @@ function CoffeeDetailModal({ coffee, onClose, onSelect }) {
                   }}>
                     <div style={{
                       height: "100%",
-                      width: `${coffee.scores[i] * 10}%`,
+                      width: "100%",
+                      transform: `scaleX(${coffee.scores[i] / 10})`,
+                      transformOrigin: "left",
                       background: DIM_COLORS[i],
                       borderRadius: 3, opacity: 0.85,
-                      transition: "width 0.8s ease",
+                      transition: "transform 0.8s ease",
                     }} />
                   </div>
                   <div style={{
@@ -1855,9 +1891,10 @@ function DiscoverView({ onSelectCoffee }) {
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                     <div style={{ flex: 1, height: 3, background: "#2A1A08", borderRadius: 2, overflow: "hidden" }}>
                       <div style={{
-                        height: "100%", width: `${score * 100}%`,
+                        height: "100%", width: "100%",
+                        transform: `scaleX(${score})`, transformOrigin: "left",
                         background: rank === 0 ? COLORS.gridOuter : `${COLORS.gridOuter}88`,
-                        borderRadius: 2, transition: "width 0.4s ease",
+                        borderRadius: 2, transition: "transform 0.4s ease",
                       }} />
                     </div>
                     <span style={{ fontSize: 9, color: COLORS.sub, width: 30, textAlign: "right", flexShrink: 0 }}>
@@ -2316,13 +2353,16 @@ export default function CoffeeInfographic() {
     }
   }
 
-  function handleDotClick(coffeeName, dimIndex) {
+  const handleDotClick = useCallback((coffeeName, dimIndex) => {
     setActivePopover((prev) =>
       prev?.coffeeName === coffeeName && prev?.dimIndex === dimIndex
         ? null
         : { coffeeName, dimIndex }
     );
-  }
+  }, []);
+
+  const closePopover = useCallback(() => setActivePopover(null), []);
+  const selectCoffee = useCallback((c) => setSelectedCoffee(c), []);
 
   // Click anywhere outside a popover closes it
   useEffect(() => {
@@ -2374,6 +2414,13 @@ export default function CoffeeInfographic() {
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(12px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+        .coffee-card {
+          content-visibility: auto;
+          contain-intrinsic-size: auto 420px;
+        }
+        .card-enter {
+          animation: fadeIn 0.5s ease both;
         }
         @keyframes popoverIn {
           from { opacity: 0; transform: translateY(6px); }
@@ -2449,15 +2496,21 @@ export default function CoffeeInfographic() {
         }
         .nav-tabs {
           display: flex;
-          justify-content: center;
+          justify-content: flex-start;
           flex-wrap: nowrap;
           overflow-x: auto;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
           max-width: 100%;
           padding-bottom: 2px;
+          /* Edge-fade scroll affordance — masks tabs running off either side. */
+          -webkit-mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
         }
         .nav-tabs::-webkit-scrollbar { display: none; }
+        /* "Safe center": justify-content is flex-start; the first/last tabs
+           carry margin-left/right: auto inline. The autos center the row when
+           it fits but collapse on overflow, keeping every tab reachable. */
         @media (max-width: 560px) {
           .nav-tabs button {
             padding: 5px 10px !important;
@@ -2487,6 +2540,16 @@ export default function CoffeeInfographic() {
         }
         .compare-selects select {
           width: min(240px, 80vw);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .card-enter { animation: none !important; }
+          .radar-dot-group:hover .dot-ring,
+          .dot-ring-active { animation: none !important; }
+          *, *::before, *::after {
+            animation-duration: 0.001ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.001ms !important;
+          }
         }
       `}</style>
 
@@ -2627,7 +2690,9 @@ export default function CoffeeInfographic() {
                 color: view === key ? "#F0DEB8" : COLORS.sub,
                 fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase",
                 cursor: "pointer", fontFamily: "Georgia, serif",
-                transition: "all 0.2s", marginLeft: idx === 0 ? 0 : -1,
+                transition: "all 0.2s",
+                marginLeft: idx === 0 ? "auto" : -1,
+                marginRight: idx === arr.length - 1 ? "auto" : undefined,
                 position: "relative", zIndex: view === key ? 1 : 0,
               }}
             >
@@ -2719,9 +2784,9 @@ export default function CoffeeInfographic() {
                     ? activePopover.dimIndex
                     : null
                 }
-                onDotClick={(dimIndex) => handleDotClick(coffee.name, dimIndex)}
-                onClosePopover={() => setActivePopover(null)}
-                onSelect={() => setSelectedCoffee(coffee)}
+                onDotClick={handleDotClick}
+                onClosePopover={closePopover}
+                onSelect={selectCoffee}
               />
             ))}
           </div>
