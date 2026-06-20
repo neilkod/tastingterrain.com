@@ -192,7 +192,15 @@ accessibility ≥ 95; no horizontal scroll anywhere at 320px.
 
 ---
 
-## Sprint 3 — Compare Mode 2.0 (the flagship)
+## Sprint 3 — Compare Mode 2.0 (the flagship) ✅ COMPLETE (pending device QA)
+
+**Status:** ✅ Implemented on branch `sprint-3-compare`; build & lint clean. All six
+items done: array-based `CompareRadar` (colorblind-safe dash patterns + screen blend),
+select-from-cards flow with a fixed bottom select bar, sticky-radar `CompareScreen`,
+per-vertex `BottomSheet` flavor comparison, rAF score-morph (reduced-motion aware),
+and `?compare=` shareable URLs. **Not yet merged to `main`** — awaiting real-device QA
+(3-way overlap blend on OLED, `backdrop-filter`, morph smoothness, notch safe-area,
+share round-trip in a fresh mobile tab).
 
 **Goal:** turn the site from a reference you *read* into a tool you *use*. A user
 selects 2–3 origins while browsing and gets an overlaid, interactive radar pinned to
@@ -206,7 +214,7 @@ The work is generalizing it, making selection touch-native, and pinning the char
 
 **Build order matters** — each step is shippable on its own:
 
-### 3.1 Generalize `CompareRadar` to 2–3 origins
+### ✅ 3.1 Generalize `CompareRadar` to 2–3 origins
 Accept `coffees: Coffee[]` instead of `{scoresA, scoresB}`. Render largest polygon
 first (painter's algorithm so small profiles aren't buried). Distinguish series by
 **stroke pattern as well as color** — solid / `4 2` dash / `1.5 3` dot — so overlaps
@@ -217,7 +225,7 @@ from the existing `#D4A843` gold and `#A98BC7` violet).
 **Outcome:** the core visualization supports the 3-way comparison, stays ~15 SVG
 nodes (instant on any device), and remains dependency-free.
 
-### 3.2 Select-from-cards flow
+### ✅ 3.2 Select-from-cards flow
 Add a "Compare" toggle to the Origins view. When active, tapping a card *selects*
 it (colored border + numbered badge in its series color) instead of opening the
 detail modal. A slim bar pinned to the bottom of the viewport — the thumb zone —
@@ -228,7 +236,7 @@ tab, two dropdowns, alphabetical hunting) becomes: see two interesting cards, ta
 tap, compare. This is the difference between a feature that exists and a feature
 that gets used.
 
-### 3.3 Sticky-top comparison layout
+### ✅ 3.3 Sticky-top comparison layout
 The comparison screen pins the radar in a `position: sticky; top: 0` header
 (~45vh, backdrop-blurred over the page background). Beneath it scroll: per-dimension
 grouped bars with a "▲ leads" marker on the max score per dimension, then
@@ -237,7 +245,7 @@ process/roast/cultivar panels per origin.
 antidote to vertical comparison fatigue, and the reason this beats three cards
 side-by-side ever could on a phone.
 
-### 3.4 Per-vertex tap → multi-origin flavor sheet
+### ✅ 3.4 Per-vertex tap → multi-origin flavor sheet
 Invisible `r=14` hit circles on each radar vertex; tapping "Floral" opens the bottom
 sheet showing the Floral highlight (tags + curated note) for *all selected origins
 side by side*.
@@ -245,7 +253,7 @@ side by side*.
 instead of a per-origin footnote. "Why does Ethiopian beat Colombian on floral?" is
 answered in one tap, in our own words.
 
-### 3.5 Animated transitions
+### ✅ 3.5 Animated transitions
 When an origin is swapped, interpolate the score vectors in JS — one
 `requestAnimationFrame` loop lerping 6 numbers per coffee over ~350ms ease-out,
 recomputing the polygon string per frame. (SVG `points`/`d` aren't reliably
@@ -254,7 +262,7 @@ cannot stutter.) Guard with `prefers-reduced-motion`.
 **Outcome:** profile changes *morph* rather than snap — the polish moment that makes
 the feature feel premium, at zero bundle cost.
 
-### 3.6 Shareable comparisons
+### ✅ 3.6 Shareable comparisons
 Encode selection in the URL (`?compare=Kenyan,Ethiopian,Rwandan`); read it on load.
 **Outcome:** every comparison becomes a shareable artifact. For a content site this
 is cheap, high-leverage distribution — people argue about coffee in group chats.

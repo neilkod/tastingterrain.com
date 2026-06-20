@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from "react";
+import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { coffees } from "./coffeeData";
 
 // ─── useMediaQuery ───────────────────────────────────────────────────────────
@@ -46,6 +46,13 @@ function useBodyScrollLock(active = true) {
       }
     };
   }, [active]);
+}
+
+// ─── usePrefersReducedMotion ─────────────────────────────────────────────────
+// Subscribes to the OS "reduce motion" setting via matchMedia. Used to snap the
+// compare-radar morph instantly instead of running the rAF lerp.
+function usePrefersReducedMotion() {
+  return useMediaQuery("(prefers-reduced-motion: reduce)");
 }
 
 const DIMS = ["Fruity", "Floral", "Sweet", "Nutty", "Spicy", "Earthy"];
@@ -470,23 +477,36 @@ function ProcessBadge({ process, size = "sm" }) {
 
 // ─── Coffee Card ──────────────────────────────────────────────────────────────
 
-const CoffeeCard = memo(function CoffeeCard({ coffee, index, activePopoverDim, onDotClick, onClosePopover, onSelect }) {
+const CoffeeCard = memo(function CoffeeCard({ coffee, index, activePopoverDim, onDotClick, onClosePopover, onSelect, compareMode, selectIndex, onToggleSelect }) {
   const [hovered, setHovered] = useState(false);
   // Entry animation runs only on first mount. The class self-removes on
   // animationend so re-renders (filtering, popover toggles) never replay it.
   const [entering, setEntering] = useState(true);
 
+  const selected = selectIndex != null;
+  const seriesColor = selected ? SERIES_COLORS[selectIndex] : null;
+
+  // In compare mode a tap selects/deselects this origin (series border + badge)
+  // instead of opening the detail modal — selection happens where browsing does.
+  const handleClick = () => {
+    if (compareMode) onToggleSelect(coffee);
+    else onSelect(coffee);
+  };
+
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={() => onSelect(coffee)}
+      onClick={handleClick}
       className={entering ? "coffee-card card-enter" : "coffee-card"}
       onAnimationEnd={(e) => { if (e.target === e.currentTarget) setEntering(false); }}
       style={{
         position: "relative",
         background: hovered ? "#231508" : COLORS.cardBg,
-        border: `1px solid ${hovered ? "#5A3A18" : COLORS.cardBorder}`,
+        border: `1px solid ${selected ? seriesColor : (hovered ? "#5A3A18" : COLORS.cardBorder)}`,
+        boxShadow: selected
+          ? `0 0 0 1px ${seriesColor}, 0 4px 24px ${seriesColor}33`
+          : (hovered ? "0 4px 24px rgba(212,168,67,0.12)" : "none"),
         borderRadius: 6,
         padding: "18px 14px 14px",
         display: "flex",
@@ -494,12 +514,23 @@ const CoffeeCard = memo(function CoffeeCard({ coffee, index, activePopoverDim, o
         alignItems: "center",
         gap: 10,
         transition: "all 0.3s ease",
-        boxShadow: hovered ? "0 4px 24px rgba(212,168,67,0.12)" : "none",
         cursor: "pointer",
         // Cap the stagger at ~8 items so the grid settles in <0.5s.
         animationDelay: `${Math.min(index, 8) * 0.05}s`,
       }}
     >
+      {selected && (
+        <div style={{
+          position: "absolute", top: 8, right: 8,
+          width: 22, height: 22, borderRadius: "50%",
+          background: seriesColor, color: "#1A1008",
+          fontSize: 12, fontFamily: "Georgia, serif", fontWeight: "bold",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          zIndex: 2,
+        }}>
+          {selectIndex + 1}
+        </div>
+      )}
       <div style={{ textAlign: "center" }}>
         <div style={{
           fontSize: 11, letterSpacing: "0.22em", color: COLORS.sub,
@@ -2281,7 +2312,68 @@ function PCAScatter() {
 
 // ─── Compare View ─────────────────────────────────────────────────────────────
 
-function CompareRadar({ scoresA, scoresB, colorA, colorB, size = 220 }) {
+// Series colors for the 2–3 way comparison. 1 = gold, 2 = violet (both existing),
+// 3 = sage (sanctioned new Earthy hue). Stroke patterns distinguish series even
+// for colorblind users: solid / dashed / dotted.
+const SERIES_COLORS = ["#D4A843", "#A98BC7", "#7A9B6A"];
+const SERIES_DASH = ["none", "4 2", "1.5 3"];
+
+// Animate the six score vectors of each selected coffee toward a new target with
+// a single rAF lerp (~350ms ease-out). SVG points/d aren't reliably CSS
+// animatable, so we interpolate the numbers in JS and recompute points per frame.
+// Under prefers-reduced-motion (or first paint) we snap instantly.
+function useAnimatedScores(coffees) {
+  const reduceMotion = usePrefersReducedMotion();
+  const target = coffees.map((c) => c.scores);
+  const [display, setDisplay] = useState(() => target.map((s) => s.slice()));
+  const fromRef = useRef(display);
+  const rafRef = useRef(0);
+  const startRef = useRef(0);
+  // Stable signature of the current target set (names + scores).
+  const sig = coffees.map((c) => c.name).join("|");
+
+  useEffect(() => {
+    cancelAnimationFrame(rafRef.current);
+    const to = target;
+    // If shapes changed (count differs) or reduced motion, snap immediately.
+    const from = fromRef.current;
+    const sameShape =
+      from.length === to.length && from.every((row, i) => row.length === to[i].length);
+    if (reduceMotion || !sameShape) {
+      fromRef.current = to.map((s) => s.slice());
+      setDisplay(fromRef.current);
+      return;
+    }
+    const DUR = 350;
+    startRef.current = 0;
+    const ease = (t) => 1 - Math.pow(1 - t, 3); // ease-out cubic
+    const step = (ts) => {
+      if (!startRef.current) startRef.current = ts;
+      const t = Math.min(1, (ts - startRef.current) / DUR);
+      const k = ease(t);
+      const next = to.map((row, ci) =>
+        row.map((v, di) => from[ci][di] + (v - from[ci][di]) * k)
+      );
+      setDisplay(next);
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(step);
+      } else {
+        fromRef.current = to.map((s) => s.slice());
+      }
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sig, reduceMotion]);
+
+  return display;
+}
+
+// Generalized compare radar: 2–3 origins overlaid in pure SVG (~15 nodes/series).
+// Painter's algorithm — largest polygon painted first so small profiles aren't
+// buried. mix-blend-mode: screen makes overlaps read as intentional blends on the
+// dark background. Optional per-vertex hit circles open the multi-origin sheet.
+function CompareRadar({ coffees, colors, size = 340, displayScores, onVertexTap }) {
   const cx = size / 2, cy = size / 2, R = size * 0.35, LEVELS = 4;
   function toXY(angle, r) {
     return { x: cx + r * Math.cos(angle - Math.PI / 2), y: cy + r * Math.sin(angle - Math.PI / 2) };
@@ -2300,8 +2392,25 @@ function CompareRadar({ scoresA, scoresB, colorA, colorB, size = 220 }) {
   );
   const dimLabelPos = DIMS.map((_, i) => toXY((2 * Math.PI * i) / NUM, R + 14));
   const dimTickPos  = DIMS.map((_, i) => toXY((2 * Math.PI * i) / NUM, R));
+  // Per-frame polygon vertices come from the animated scores when provided.
+  const scoresList = displayScores || coffees.map((c) => c.scores);
+
+  // Paint order: largest area (sum of scores) first so small profiles sit on
+  // top. Computed from the STABLE target scores (not the animated values) so the
+  // stacking order can't flicker mid-morph.
+  const order = coffees
+    .map((_, i) => i)
+    .sort((a, b) => {
+      const sa = coffees[a].scores.reduce((s, v) => s + v, 0);
+      const sb = coffees[b].scores.reduce((s, v) => s + v, 0);
+      return sb - sa;
+    });
+
+  // Hit-circle anchor per dimension: outer ring so the tap zone is predictable.
+  const hitPos = DIMS.map((_, i) => toXY((2 * Math.PI * i) / NUM, R));
+
   return (
-    <svg viewBox={`0 0 ${size} ${size}`} style={{ overflow: "visible", width: "min(340px, 85vw)", height: "auto" }}>
+    <svg viewBox={`0 0 ${size} ${size}`} style={{ overflow: "visible", width: "min(340px, 80vw)", height: "auto" }}>
       <defs>
         <filter id="cmp-glow"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
       </defs>
@@ -2314,30 +2423,262 @@ function CompareRadar({ scoresA, scoresB, colorA, colorB, size = 220 }) {
         <line key={i} x1={cx} y1={cy} x2={x} y2={y}
           stroke={DIM_COLORS[i]} strokeWidth={0.6} strokeOpacity={0.35} />
       ))}
-      {/* Coffee A — filled */}
-      <polygon points={polyPts(scoresA)} fill={colorA + "30"} stroke={colorA} strokeWidth={1.5} filter="url(#cmp-glow)" />
-      {/* Coffee B — outlined */}
-      <polygon points={polyPts(scoresB)} fill={colorB + "18"} stroke={colorB} strokeWidth={1.5} strokeDasharray="4 2" />
+      {/* Series polygons — painter's algorithm, screen-blended overlaps */}
+      <g style={{ mixBlendMode: "screen" }}>
+        {order.map((ci) => (
+          <polygon
+            key={coffees[ci].name}
+            points={polyPts(scoresList[ci])}
+            fill={colors[ci] + "2E"}
+            stroke={colors[ci]}
+            strokeWidth={1.5}
+            strokeDasharray={SERIES_DASH[ci] === "none" ? undefined : SERIES_DASH[ci]}
+            filter={ci === order[0] ? "url(#cmp-glow)" : undefined}
+          />
+        ))}
+      </g>
       {DIMS.map((d, i) => (
         <text key={i} x={dimLabelPos[i].x} y={dimLabelPos[i].y + 3}
-          textAnchor="middle" fontSize={8} fill={DIM_COLORS[i]} opacity={0.8}
+          textAnchor="middle" fontSize={8} fill={DIM_COLORS[i]} opacity={0.85}
           fontFamily="Georgia, serif">
           {d}
         </text>
+      ))}
+      {/* Per-vertex invisible hit circles → multi-origin flavor sheet */}
+      {onVertexTap && hitPos.map(({ x, y }, i) => (
+        <circle key={`hit-${i}`} cx={x} cy={y} r={14} fill="transparent"
+          style={{ cursor: "pointer" }}
+          onClick={(e) => { e.stopPropagation(); onVertexTap(i); }} />
       ))}
     </svg>
   );
 }
 
-const COMPARE_COLORS = ["#D4A843", "#A98BC7"];
+// 3.4 — Multi-origin flavor sheet. Reuses the BottomSheet primitive: one
+// dimension, every selected origin's curated highlight stacked and labeled in
+// its series color. Null highlights show a tasteful placeholder.
+function CompareFlavorSheet({ coffees, colors, dimIndex, onClose }) {
+  const dim = DIMS[dimIndex];
+  return (
+    <BottomSheet onClose={onClose} accent={`${DIM_COLORS[dimIndex]}99`}>
+      <div style={{
+        display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12,
+      }}>
+        <div style={{ fontSize: TYPE.micro, color: DIM_COLORS[dimIndex], letterSpacing: "0.22em", textTransform: "uppercase" }}>
+          {dim} · across {coffees.length} origins
+        </div>
+        <span onClick={onClose} style={{ cursor: "pointer", color: COLORS.sub, fontSize: 22, lineHeight: 1, marginLeft: 12 }}>×</span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {coffees.map((c, idx) => {
+          const h = c.highlights[dimIndex];
+          const col = colors[idx];
+          return (
+            <div key={c.name} style={{ borderLeft: `2px solid ${col}`, paddingLeft: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
+                <span style={{ fontSize: TYPE.small, color: col, fontFamily: "Georgia, serif", letterSpacing: "0.04em" }}>
+                  {c.name}
+                </span>
+                <span style={{ fontSize: TYPE.micro, color: COLORS.sub }}>· {c.scores[dimIndex]}/10</span>
+              </div>
+              {h ? (
+                <>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 6 }}>
+                    {h.tags.map((tag) => (
+                      <span key={tag} style={{
+                        fontSize: TYPE.micro, color: col,
+                        background: `${col}26`, border: `1px solid ${col}55`,
+                        borderRadius: 20, padding: "3px 9px", letterSpacing: "0.04em", whiteSpace: "nowrap",
+                      }}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <p style={{ margin: 0, fontSize: TYPE.small, color: COLORS.label, fontStyle: "italic", lineHeight: 1.6 }}>
+                    {h.note}
+                  </p>
+                </>
+              ) : (
+                <p style={{ margin: 0, fontSize: TYPE.small, color: COLORS.sub, fontStyle: "italic", lineHeight: 1.55 }}>
+                  Not a defining note for {c.name.split(" ")[0]}.
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </BottomSheet>
+  );
+}
+
+// 3.3 — Sticky-top comparison screen, the destination of the select-from-cards
+// flow. The radar pins to the top (sticky, backdrop-blurred); per-dimension
+// grouped bars and per-origin info panels scroll beneath. Reuses TYPE / COLORS.
+function CompareScreen({ coffees, onRemove, onClearAll }) {
+  const colors = coffees.map((_, i) => SERIES_COLORS[i]);
+  const displayScores = useAnimatedScores(coffees);
+  const [sheetDim, setSheetDim] = useState(null);
+
+  return (
+    <div style={{ maxWidth: 760, margin: "0 auto" }}>
+      {/* Sticky radar header */}
+      <div style={{
+        position: "sticky", top: 0, zIndex: 40,
+        background: "rgba(26,16,8,0.82)",
+        backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
+        borderBottom: `1px solid ${COLORS.cardBorder}`,
+        margin: "0 -24px", padding: "12px 24px 14px",
+        display: "flex", flexDirection: "column", alignItems: "center",
+        minHeight: "45vh", justifyContent: "center",
+      }}>
+        <CompareRadar
+          coffees={coffees}
+          colors={colors}
+          size={300}
+          displayScores={displayScores}
+          onVertexTap={setSheetDim}
+        />
+        <div style={{ display: "flex", gap: 18, marginTop: 10, flexWrap: "wrap", justifyContent: "center" }}>
+          {coffees.map((c, idx) => (
+            <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <svg width={22} height={10}>
+                <line x1={0} y1={5} x2={22} y2={5} stroke={colors[idx]} strokeWidth={2}
+                  strokeDasharray={SERIES_DASH[idx] === "none" ? undefined : SERIES_DASH[idx]} />
+              </svg>
+              <span style={{ fontSize: 11, color: COLORS.label, fontFamily: "Georgia, serif" }}>{c.name}</span>
+              <button
+                onClick={() => onRemove(c.name)}
+                aria-label={`Remove ${c.name}`}
+                className="tap-chip"
+                style={{
+                  background: "none", border: "none", color: COLORS.sub,
+                  fontSize: 14, lineHeight: 1, cursor: "pointer", padding: "0 2px",
+                }}
+              >×</button>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: TYPE.micro, color: COLORS.sub, fontStyle: "italic", marginTop: 8 }}>
+          Tap a point to compare that flavor across all origins
+        </div>
+      </div>
+
+      {/* Per-dimension grouped score bars */}
+      <div style={{
+        background: COLORS.cardBg, border: `1px solid ${COLORS.cardBorder}`,
+        borderRadius: 8, padding: "18px 22px", margin: "18px 0 16px",
+      }}>
+        <div style={{ fontSize: 9, color: COLORS.sub, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 14 }}>
+          Flavor Scores
+        </div>
+        {DIMS.map((dim, i) => {
+          const max = Math.max(...coffees.map((c) => c.scores[i]));
+          return (
+            <div key={dim} style={{ marginBottom: 12 }}>
+              <div
+                onClick={() => setSheetDim(i)}
+                style={{ fontSize: 9.5, color: DIM_COLORS[i], letterSpacing: "0.08em", marginBottom: 5, cursor: "pointer" }}
+              >
+                {dim}
+              </div>
+              {coffees.map((c, idx) => {
+                const leads = c.scores[i] === max;
+                return (
+                  <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                    <div className="compare-score-label" style={{ width: 100, fontSize: 8.5, color: colors[idx], fontFamily: "Georgia, serif", textAlign: "right", flexShrink: 0 }}>
+                      {c.name.split(" ")[0]}
+                    </div>
+                    <div style={{ flex: 1, height: 5, background: "#2A1A08", borderRadius: 3, overflow: "hidden" }}>
+                      <div style={{
+                        height: "100%", width: "100%",
+                        transform: `scaleX(${c.scores[i] / 10})`, transformOrigin: "left",
+                        background: colors[idx], borderRadius: 3, opacity: 0.85,
+                        transition: "transform 0.35s ease",
+                      }} />
+                    </div>
+                    <div style={{ fontSize: 9, color: colors[idx], width: 26, textAlign: "right", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 2 }}>
+                      {leads && <span style={{ color: colors[idx] }} title="leads">▲</span>}
+                      {c.scores[i]}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Per-origin info panels */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {coffees.map((c, idx) => (
+          <div key={c.name} style={{
+            background: COLORS.cardBg, border: `1px solid ${COLORS.cardBorder}`,
+            borderRadius: 8, padding: "16px 20px", borderTop: `2px solid ${colors[idx]}`,
+          }}>
+            <div style={{ fontSize: 9, color: colors[idx], letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 4 }}>
+              {c.region}
+            </div>
+            <div style={{ fontSize: 16, color: "#F0DEB8", fontFamily: "Georgia, serif", marginBottom: 8 }}>{c.name}</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10, alignItems: "center" }}>
+              <ProcessBadge process={c.process} size="sm" />
+              <span style={{ fontSize: 9, color: COLORS.sub }}>{c.roast} roast</span>
+            </div>
+            {c.cultivars?.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 10 }}>
+                {c.cultivars.map((cv) => (
+                  <span key={cv} style={{
+                    fontSize: 9, color: "#A98BC7", background: "#A98BC711",
+                    border: "1px solid #A98BC744", borderRadius: 4, padding: "2px 7px",
+                  }}>
+                    {cv}
+                  </span>
+                ))}
+              </div>
+            )}
+            <p style={{ margin: 0, fontSize: 10.5, color: COLORS.sub, fontStyle: "italic", lineHeight: 1.65 }}>{c.note}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ textAlign: "center", marginTop: 18 }}>
+        <button
+          onClick={onClearAll}
+          className="tap-chip"
+          style={{
+            fontSize: TYPE.micro, fontFamily: "Georgia, serif", letterSpacing: "0.08em",
+            padding: "6px 16px", borderRadius: 14, border: `1px solid ${COLORS.cardBorder}`,
+            background: "transparent", color: COLORS.sub, cursor: "pointer",
+          }}
+        >
+          clear comparison
+        </button>
+      </div>
+
+      {sheetDim != null && (
+        <CompareFlavorSheet
+          coffees={coffees}
+          colors={colors}
+          dimIndex={sheetDim}
+          onClose={() => setSheetDim(null)}
+        />
+      )}
+    </div>
+  );
+}
 
 const sortedCoffeeNames = coffees.slice().sort((a, b) => a.name.localeCompare(b.name)).map(c => c.name);
 
+// Legacy two-dropdown Compare tab. Kept working by feeding the array form into
+// the generalized CompareRadar (3.1). The select-from-cards flow (3.2) is the
+// primary path; this remains for users who prefer explicit dropdowns.
 function CompareView() {
   const [nameA, setNameA] = useState(sortedCoffeeNames[0]);
   const [nameB, setNameB] = useState(sortedCoffeeNames[1]);
   const a = coffees.find(c => c.name === nameA);
   const b = coffees.find(c => c.name === nameB);
+  const pair = [a, b];
+  const colors = [SERIES_COLORS[0], SERIES_COLORS[1]];
+  const [sheetDim, setSheetDim] = useState(null);
 
   const selectStyle = {
     appearance: "none", WebkitAppearance: "none", MozAppearance: "none",
@@ -2354,7 +2695,7 @@ function CompareView() {
     <div style={{ maxWidth: 760, margin: "0 auto" }}>
       {/* Dropdowns */}
       <div className="compare-selects" style={{ marginBottom: 28 }}>
-        {[[nameA, setNameA, COMPARE_COLORS[0]], [nameB, setNameB, COMPARE_COLORS[1]]].map(([val, setter, color], idx) => (
+        {[[nameA, setNameA, colors[0]], [nameB, setNameB, colors[1]]].map(([val, setter, color], idx) => (
           <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
@@ -2373,13 +2714,13 @@ function CompareView() {
 
       {/* Radar */}
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
-        <CompareRadar scoresA={a.scores} scoresB={b.scores} colorA={COMPARE_COLORS[0]} colorB={COMPARE_COLORS[1]} size={340} />
+        <CompareRadar coffees={pair} colors={colors} size={340} onVertexTap={setSheetDim} />
         <div style={{ display: "flex", gap: 28, marginTop: 12 }}>
-          {[a, b].map((c, idx) => (
+          {pair.map((c, idx) => (
             <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 7 }}>
               <svg width={22} height={10}>
-                <line x1={0} y1={5} x2={22} y2={5} stroke={COMPARE_COLORS[idx]} strokeWidth={2}
-                  strokeDasharray={idx === 1 ? "4 2" : "none"} />
+                <line x1={0} y1={5} x2={22} y2={5} stroke={colors[idx]} strokeWidth={2}
+                  strokeDasharray={SERIES_DASH[idx] === "none" ? undefined : SERIES_DASH[idx]} />
               </svg>
               <span style={{ fontSize: 10, color: COLORS.label, fontFamily: "Georgia, serif" }}>{c.name}</span>
             </div>
@@ -2398,15 +2739,15 @@ function CompareView() {
         {DIMS.map((dim, i) => (
           <div key={dim} style={{ marginBottom: 10 }}>
             <div style={{ fontSize: 9, color: DIM_COLORS[i], letterSpacing: "0.08em", marginBottom: 4 }}>{dim}</div>
-            {[a, b].map((c, idx) => (
+            {pair.map((c, idx) => (
               <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-                <div className="compare-score-label" style={{ width: 100, fontSize: 8.5, color: COMPARE_COLORS[idx], fontFamily: "Georgia, serif", textAlign: "right", flexShrink: 0 }}>
+                <div className="compare-score-label" style={{ width: 100, fontSize: 8.5, color: colors[idx], fontFamily: "Georgia, serif", textAlign: "right", flexShrink: 0 }}>
                   {c.name.split(" ")[0]}
                 </div>
                 <div style={{ flex: 1, height: 5, background: "#2A1A08", borderRadius: 3, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${c.scores[i] * 10}%`, background: COMPARE_COLORS[idx], borderRadius: 3, opacity: 0.85 }} />
+                  <div style={{ height: "100%", width: `${c.scores[i] * 10}%`, background: colors[idx], borderRadius: 3, opacity: 0.85 }} />
                 </div>
-                <div style={{ fontSize: 9, color: COMPARE_COLORS[idx], width: 16, textAlign: "right" }}>{c.scores[i]}</div>
+                <div style={{ fontSize: 9, color: colors[idx], width: 16, textAlign: "right" }}>{c.scores[i]}</div>
               </div>
             ))}
           </div>
@@ -2415,13 +2756,13 @@ function CompareView() {
 
       {/* Info panels */}
       <div className="compare-info-grid" style={{ gap: 16 }}>
-        {[a, b].map((c, idx) => (
+        {pair.map((c, idx) => (
           <div key={c.name} style={{
             background: COLORS.cardBg, border: `1px solid ${COLORS.cardBorder}`,
             borderRadius: 8, padding: "16px 20px",
-            borderTop: `2px solid ${COMPARE_COLORS[idx]}`,
+            borderTop: `2px solid ${colors[idx]}`,
           }}>
-            <div style={{ fontSize: 9, color: COMPARE_COLORS[idx], letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 4 }}>
+            <div style={{ fontSize: 9, color: colors[idx], letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 4 }}>
               {c.region}
             </div>
             <div style={{ fontSize: 16, color: "#F0DEB8", fontFamily: "Georgia, serif", marginBottom: 8 }}>{c.name}</div>
@@ -2447,22 +2788,103 @@ function CompareView() {
           </div>
         ))}
       </div>
+
+      {sheetDim != null && (
+        <CompareFlavorSheet coffees={pair} colors={colors} dimIndex={sheetDim} onClose={() => setSheetDim(null)} />
+      )}
     </div>
   );
+}
+
+// ─── Shareable compare URL (3.6) ──────────────────────────────────────────────
+// Encode/decode the selected origins in ?compare=Name1,Name2,Name3. Unknown or
+// garbage names are dropped gracefully; selection caps at 3.
+const COFFEE_BY_NAME = new Map(coffees.map((c) => [c.name, c]));
+
+function readCompareFromURL() {
+  if (typeof window === "undefined") return [];
+  const param = new URLSearchParams(window.location.search).get("compare");
+  if (!param) return [];
+  const names = param.split(",").map((s) => decodeURIComponent(s.trim()));
+  const seen = new Set();
+  const valid = [];
+  for (const name of names) {
+    const c = COFFEE_BY_NAME.get(name);
+    if (c && !seen.has(name)) { seen.add(name); valid.push(c); }
+    if (valid.length === 3) break;
+  }
+  return valid;
+}
+
+function writeCompareToURL(selected) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (selected.length > 0) {
+    url.searchParams.set("compare", selected.map((c) => encodeURIComponent(c.name)).join(","));
+  } else {
+    url.searchParams.delete("compare");
+  }
+  // replaceState — don't spam browser history on every selection change.
+  window.history.replaceState(null, "", url);
 }
 
 // ─── Root Component ───────────────────────────────────────────────────────────
 
 export default function CoffeeInfographic() {
+  // Restore a shared comparison from the URL on first load (3.6).
+  const initialCompare = readCompareFromURL();
   const [sortDim, setSortDim] = useState(null);
   const [sortDir, setSortDir] = useState("desc");
-  const [view, setView] = useState("cards");
+  const [view, setView] = useState(initialCompare.length >= 2 ? "compareScreen" : "cards");
   const [showMethodology, setShowMethodology] = useState(false);
   const [selectedCoffee, setSelectedCoffee] = useState(null);
   const [brewFilter, setBrewFilter] = useState(new Set());
   const [roastFilter, setRoastFilter] = useState(new Set());
   // { coffeeName: string, dimIndex: number } | null
   const [activePopover, setActivePopover] = useState(null);
+
+  // ─── Compare Mode 2.0 selection state (3.2 / 3.6) ───────────────────────────
+  const [compareMode, setCompareMode] = useState(false);
+  const [selected, setSelected] = useState(initialCompare); // Coffee[] length 0–3
+
+  // Keep the URL in sync with the selection while comparing (replaceState).
+  useEffect(() => {
+    if (view === "compareScreen" || selected.length > 0) {
+      writeCompareToURL(selected);
+    }
+  }, [selected, view]);
+
+  // Stable selection handlers so React.memo(CoffeeCard) stays effective.
+  const toggleSelect = useCallback((coffee) => {
+    setSelected((prev) => {
+      const exists = prev.some((c) => c.name === coffee.name);
+      if (exists) return prev.filter((c) => c.name !== coffee.name);
+      if (prev.length >= 3) return prev; // cap at 3 — a 4th tap is a no-op
+      return [...prev, coffee];
+    });
+  }, []);
+
+  const removeSelected = useCallback((name) => {
+    setSelected((prev) => prev.filter((c) => c.name !== name));
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelected([]);
+    writeCompareToURL([]);
+  }, []);
+
+  const goToCompareScreen = useCallback(() => {
+    if (selected.length >= 2) setView("compareScreen");
+  }, [selected.length]);
+
+  // Toggling compare mode off leaving the cards view clears the in-progress
+  // selection so the bottom bar doesn't linger.
+  const toggleCompareMode = useCallback(() => {
+    setCompareMode((prev) => {
+      if (prev) setSelected([]);
+      return !prev;
+    });
+  }, []);
 
   function handleDimClick(i) {
     if (sortDim === i) {
@@ -2522,6 +2944,9 @@ export default function CoffeeInfographic() {
     setRoastFilter(new Set());
   }
   const anyFilterActive = brewFilter.size > 0 || roastFilter.size > 0;
+
+  // name → series index (0-based) for quick per-card lookup.
+  const selectIndexByName = new Map(selected.map((c, i) => [c.name, i]));
 
   return (
     <>
@@ -2924,7 +3349,7 @@ export default function CoffeeInfographic() {
             ))}
             {/* Result count is always visible — at rest it advertises that
                 filters exist; clear-all only appears when something is active. */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 2 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 2, flexWrap: "wrap" }}>
               <span style={{
                 fontSize: TYPE.micro, color: COLORS.sub, fontFamily: "Georgia, serif", fontStyle: "italic",
               }}>
@@ -2945,7 +3370,28 @@ export default function CoffeeInfographic() {
                   clear all
                 </button>
               )}
+              {/* Compare-mode toggle — selection happens where browsing does. */}
+              <button
+                onClick={toggleCompareMode}
+                className="tap-chip"
+                style={{
+                  marginLeft: "auto",
+                  fontSize: TYPE.micro, fontFamily: "Georgia, serif", letterSpacing: "0.06em",
+                  padding: "5px 13px", borderRadius: 14,
+                  border: `1px solid ${compareMode ? SERIES_COLORS[0] : COLORS.cardBorder}`,
+                  background: compareMode ? `${SERIES_COLORS[0]}22` : "transparent",
+                  color: compareMode ? "#F0DEB8" : COLORS.sub,
+                  cursor: "pointer", transition: "all 0.15s",
+                }}
+              >
+                {compareMode ? "✓ Comparing" : "Compare"}
+              </button>
             </div>
+            {compareMode && (
+              <div style={{ fontSize: TYPE.micro, color: COLORS.label, fontStyle: "italic" }}>
+                Tap up to 3 origins to compare.
+              </div>
+            )}
           </div>
         )}
 
@@ -2965,6 +3411,9 @@ export default function CoffeeInfographic() {
                 onDotClick={handleDotClick}
                 onClosePopover={closePopover}
                 onSelect={selectCoffee}
+                compareMode={compareMode}
+                selectIndex={selectIndexByName.has(coffee.name) ? selectIndexByName.get(coffee.name) : null}
+                onToggleSelect={toggleSelect}
               />
             ))}
           </div>
@@ -2989,8 +3438,23 @@ export default function CoffeeInfographic() {
         {/* Flavor Map */}
         {view === "map" && <PCAScatter />}
 
-        {/* Compare */}
+        {/* Compare (legacy two-dropdown tab) */}
         {view === "compare" && <CompareView />}
+
+        {/* Compare Mode 2.0 — sticky-top screen for the select-from-cards flow */}
+        {view === "compareScreen" && (
+          selected.length >= 2 ? (
+            <CompareScreen
+              coffees={selected}
+              onRemove={removeSelected}
+              onClearAll={() => { clearSelection(); setView("cards"); }}
+            />
+          ) : (
+            <div style={{ textAlign: "center", padding: "40px 0", color: COLORS.sub, fontStyle: "italic", fontSize: TYPE.small }}>
+              Select at least two origins from the Origins view to compare.
+            </div>
+          )
+        )}
 
         {/* Footer */}
         <div style={{
@@ -3036,6 +3500,66 @@ export default function CoffeeInfographic() {
         </div>
       </div>
     </div>
+
+      {/* Selection bar — pinned to the thumb zone while comparing from cards. */}
+      {compareMode && view === "cards" && (
+        <div style={{
+          position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 200,
+          background: "rgba(31,20,9,0.96)",
+          backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+          borderTop: `1px solid ${COLORS.gridOuter}55`,
+          padding: "10px 16px calc(10px + env(safe-area-inset-bottom))",
+          display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+          boxShadow: "0 -6px 24px rgba(0,0,0,0.5)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", flex: 1, minWidth: 0 }}>
+            {selected.length === 0 ? (
+              <span style={{ fontSize: TYPE.micro, color: COLORS.sub, fontStyle: "italic", fontFamily: "Georgia, serif" }}>
+                Tap origins to add them here…
+              </span>
+            ) : (
+              selected.map((c, idx) => (
+                <span key={c.name} style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  fontSize: TYPE.micro, fontFamily: "Georgia, serif",
+                  color: "#1A1008", background: SERIES_COLORS[idx],
+                  borderRadius: 14, padding: "4px 6px 4px 10px",
+                }}>
+                  {c.name}
+                  <button
+                    onClick={() => removeSelected(c.name)}
+                    aria-label={`Remove ${c.name}`}
+                    className="tap-chip"
+                    style={{
+                      background: "rgba(26,16,8,0.25)", border: "none", borderRadius: "50%",
+                      width: 16, height: 16, color: "#1A1008", fontSize: 12, lineHeight: 1,
+                      cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                    }}
+                  >×</button>
+                </span>
+              ))
+            )}
+          </div>
+          <button
+            onClick={goToCompareScreen}
+            disabled={selected.length < 2}
+            className="tap-chip"
+            style={{
+              flexShrink: 0,
+              fontSize: TYPE.small, fontFamily: "Georgia, serif", letterSpacing: "0.06em",
+              padding: "8px 16px", borderRadius: 16,
+              border: `1px solid ${selected.length >= 2 ? SERIES_COLORS[0] : COLORS.cardBorder}`,
+              background: selected.length >= 2 ? `${SERIES_COLORS[0]}28` : "transparent",
+              color: selected.length >= 2 ? "#F0DEB8" : COLORS.faint,
+              cursor: selected.length >= 2 ? "pointer" : "not-allowed",
+              opacity: selected.length >= 2 ? 1 : 0.6,
+              transition: "all 0.15s",
+            }}
+          >
+            Compare →
+          </button>
+        </div>
+      )}
 
       {showMethodology && (
         <MethodologyModal onClose={() => setShowMethodology(false)} />
