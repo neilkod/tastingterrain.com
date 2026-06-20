@@ -1,6 +1,53 @@
 import { useState, useEffect, useCallback, memo } from "react";
 import { coffees } from "./coffeeData";
 
+// ─── useMediaQuery ───────────────────────────────────────────────────────────
+// Single source of truth for the mobile breakpoint. Subscribes to matchMedia
+// change events so rotation / resize re-render correctly (replaces the four
+// render-time window.innerWidth reads).
+function useMediaQuery(query) {
+  const getMatch = () =>
+    typeof window !== "undefined" && typeof window.matchMedia === "function"
+      ? window.matchMedia(query).matches
+      : false;
+  const [matches, setMatches] = useState(getMatch);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mql = window.matchMedia(query);
+    const onChange = () => setMatches(mql.matches);
+    onChange();
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, [query]);
+
+  return matches;
+}
+
+const MOBILE_QUERY = "(max-width: 639px)";
+
+// ─── useBodyScrollLock ───────────────────────────────────────────────────────
+// Locks background scroll while a sheet/modal is mounted. Ref-counted so nested
+// overlays don't unlock prematurely.
+let scrollLockCount = 0;
+let savedOverflow = "";
+function useBodyScrollLock(active = true) {
+  useEffect(() => {
+    if (!active || typeof document === "undefined") return;
+    if (scrollLockCount === 0) {
+      savedOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+    }
+    scrollLockCount += 1;
+    return () => {
+      scrollLockCount -= 1;
+      if (scrollLockCount === 0) {
+        document.body.style.overflow = savedOverflow;
+      }
+    };
+  }, [active]);
+}
+
 const DIMS = ["Fruity", "Floral", "Sweet", "Nutty", "Spicy", "Earthy"];
 const DIM_DESCS = [
   "berries, citrus, stone fruit",
@@ -22,13 +69,29 @@ const DIM_COLORS = [
 ];
 
 const COLORS = {
-  grid: "#3A2A14",
-  gridOuter: "#8B6F4E",
+  grid: "#3A2A14",       // decorative grid lines only (never text)
+  gridOuter: "#8B6F4E",  // decorative borders / outer ring (never text)
   label: "#C4A882",
-  sub: "#8B6F4E",
+  // Workhorse muted tone bumped from #8B6F4E (~4.0:1) to ~#A08560 so body text
+  // clears WCAG AA 4.5:1 on the #1A1008 base while staying in the brown/gold family.
+  sub: "#A08560",
+  // Legible muted tone for the scoring disclaimer (was #3A2A14 ≈ 1.35:1, invisible).
+  faint: "#7A6244",
   bg: "#1A1008",
   cardBg: "#1F1409",
   cardBorder: "#2A1A08",
+};
+
+// ─── Type scale ──────────────────────────────────────────────────────────────
+// Expressed in rem so OS/browser font-size settings are respected. Body floored
+// at ~11px (0.6875rem). Hierarchy comes from spacing/tracking, not tiny text.
+const TYPE = {
+  micro: "0.6875rem", // ~11px — smallest allowed (labels, captions)
+  small: "0.8125rem", // ~13px
+  base:  "0.9375rem", // ~15px
+  lg:    "1.125rem",  // ~18px
+  xl:    "1.5rem",    // ~24px
+  hero:  "clamp(1.875rem, 5vw, 3rem)",
 };
 
 // ─── Radar Chart ────────────────────────────────────────────────────────────
@@ -161,6 +224,9 @@ function RadarChart({ scores, size = 110, onDotClick, activeDim }) {
               strokeWidth={0.8}
               className="radar-dot"
             />
+            {/* Invisible thumb-sized hit target (r=14) — keeps the
+                dot→flavor-note popover reachable by finger. */}
+            <circle cx={x} cy={y} r={14} fill="transparent" />
           </g>
         );
       })}
@@ -187,46 +253,62 @@ function RadarChart({ scores, size = 110, onDotClick, activeDim }) {
   );
 }
 
+// ─── Bottom Sheet (the mobile interaction primitive) ─────────────────────────
+// One surface, reused by the radar-dot popover, the chip tooltip, and the
+// heatmap cell tap. Hardened for touch: body scroll-lock, safe-area inset for
+// the home indicator, overscroll containment so the sheet doesn't scroll the
+// page behind it.
+function BottomSheet({ onClose, accent = `${COLORS.gridOuter}`, children }) {
+  useBodyScrollLock(true);
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed", inset: 0,
+          zIndex: 999,
+          background: "rgba(0,0,0,0.55)",
+        }}
+      />
+      {/* Sheet */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: "fixed",
+          bottom: 0, left: 0, right: 0,
+          zIndex: 1000,
+          maxHeight: "85vh",
+          overflowY: "auto",
+          overscrollBehavior: "contain",
+          WebkitOverflowScrolling: "touch",
+          background: "#1F1409",
+          borderTop: `1px solid ${accent}`,
+          borderRadius: "12px 12px 0 0",
+          padding: "16px 20px calc(36px + env(safe-area-inset-bottom))",
+          boxShadow: "0 -8px 32px rgba(0,0,0,0.7)",
+          fontFamily: "Georgia, serif",
+          animation: "slideUp 0.2s ease both",
+        }}
+      >
+        {children}
+      </div>
+    </>
+  );
+}
+
 // ─── Popover ─────────────────────────────────────────────────────────────────
 
 function Popover({ coffee, dimIndex, onClose }) {
   const dim = DIMS[dimIndex];
   const color = DIM_COLORS[dimIndex];
   const highlight = coffee.highlights[dimIndex];
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+  const isMobile = useMediaQuery(MOBILE_QUERY);
 
   if (isMobile) {
-    return (
-      <>
-        {/* Mobile backdrop */}
-        <div
-          onClick={onClose}
-          style={{
-            position: "fixed", inset: 0,
-            zIndex: 999,
-            background: "rgba(0,0,0,0.55)",
-          }}
-        />
-        {/* Bottom sheet */}
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            position: "fixed",
-            bottom: 0, left: 0, right: 0,
-            zIndex: 1000,
-            background: "#1F1409",
-            borderTop: `1px solid ${color}99`,
-            borderRadius: "12px 12px 0 0",
-            padding: "16px 20px 36px",
-            boxShadow: "0 -8px 32px rgba(0,0,0,0.7)",
-            fontFamily: "Georgia, serif",
-            animation: "slideUp 0.2s ease both",
-          }}
-        >
-          <PopoverContent dim={dim} color={color} highlight={highlight} onClose={onClose} />
-        </div>
-      </>
-    );
+    return <BottomSheet onClose={onClose} accent={`${color}99`}>
+      <PopoverContent dim={dim} color={color} highlight={highlight} onClose={onClose} />
+    </BottomSheet>;
   }
 
   return (
@@ -260,7 +342,7 @@ function PopoverContent({ dim, color, highlight, onClose }) {
         marginBottom: highlight ? 8 : 6,
       }}>
         <span style={{
-          fontSize: 10,
+          fontSize: TYPE.micro,
           color,
           letterSpacing: "0.2em",
           textTransform: "uppercase",
@@ -269,11 +351,14 @@ function PopoverContent({ dim, color, highlight, onClose }) {
         </span>
         <button
           onClick={onClose}
+          aria-label="Close"
           style={{
             background: "none", border: "none",
-            color: COLORS.sub, fontSize: 16,
-            cursor: "pointer", padding: "0 0 0 10px",
-            lineHeight: 1, fontFamily: "Georgia, serif",
+            color: COLORS.sub, fontSize: 22,
+            cursor: "pointer", lineHeight: 1, fontFamily: "Georgia, serif",
+            width: 36, height: 36, marginRight: -8,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            touchAction: "manipulation",
           }}
         >
           ×
@@ -287,12 +372,12 @@ function PopoverContent({ dim, color, highlight, onClose }) {
               <span
                 key={tag}
                 style={{
-                  fontSize: 9,
+                  fontSize: TYPE.micro,
                   color,
                   background: `${color}30`,
                   border: `1px solid ${color}55`,
                   borderRadius: 20,
-                  padding: "2px 8px",
+                  padding: "3px 9px",
                   letterSpacing: "0.04em",
                   whiteSpace: "nowrap",
                 }}
@@ -303,7 +388,7 @@ function PopoverContent({ dim, color, highlight, onClose }) {
           </div>
           <p style={{
             margin: 0,
-            fontSize: 10,
+            fontSize: TYPE.small,
             color: COLORS.label,
             fontStyle: "italic",
             lineHeight: 1.6,
@@ -315,7 +400,7 @@ function PopoverContent({ dim, color, highlight, onClose }) {
       ) : (
         <p style={{
           margin: 0,
-          fontSize: 10,
+          fontSize: TYPE.small,
           color: COLORS.sub,
           fontStyle: "italic",
           lineHeight: 1.55,
@@ -524,45 +609,27 @@ const PROCESS_INDEX = (() => {
 
 function ChipTooltip({ coffee, anchorRect, onClose }) {
   const TOOLTIP_WIDTH = 190;
-  const isMobile = window.innerWidth < 640;
+  const isMobile = useMediaQuery(MOBILE_QUERY);
 
   if (isMobile) {
     return (
-      <>
-        <div
-          onClick={onClose}
-          style={{
-            position: "fixed", inset: 0,
-            zIndex: 299, background: "rgba(0,0,0,0.55)",
-          }}
-        />
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            position: "fixed",
-            bottom: 0, left: 0, right: 0,
-            zIndex: 300,
-            background: "#1F1409",
-            borderTop: `1px solid ${COLORS.gridOuter}`,
-            borderRadius: "12px 12px 0 0",
-            padding: "16px 20px 36px",
-            boxShadow: "0 -8px 32px rgba(0,0,0,0.7)",
-            fontFamily: "Georgia, serif",
-            animation: "slideUp 0.2s ease both",
-            display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-          }}
-        >
+      <BottomSheet onClose={onClose} accent={COLORS.gridOuter}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
           <button
             onClick={onClose}
+            aria-label="Close"
             style={{
               alignSelf: "flex-end", background: "none", border: "none",
-              color: COLORS.sub, fontSize: 18, cursor: "pointer",
-              fontFamily: "Georgia, serif", lineHeight: 1, marginBottom: 4,
+              color: COLORS.sub, fontSize: 22, cursor: "pointer",
+              fontFamily: "Georgia, serif", lineHeight: 1,
+              width: 36, height: 36, marginRight: -8, marginBottom: 4,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              touchAction: "manipulation",
             }}
           >×</button>
           <ChipTooltipContent coffee={coffee} />
         </div>
-      </>
+      </BottomSheet>
     );
   }
 
@@ -633,6 +700,7 @@ function ChipTooltipContent({ coffee }) {
 function TagView() {
   const [activeChip, setActiveChip] = useState(null);
   // { coffee, anchorRect }
+  const isMobile = useMediaQuery(MOBILE_QUERY);
 
   useEffect(() => {
     if (!activeChip) return;
@@ -642,14 +710,14 @@ function TagView() {
   }, [activeChip]);
 
   function handleChipEnter(e, coffee) {
-    if (window.innerWidth >= 640) {
+    if (!isMobile) {
       setActiveChip({ coffee, anchorRect: e.currentTarget.getBoundingClientRect() });
     }
   }
 
   function handleChipClick(e, coffee) {
     e.stopPropagation();
-    if (window.innerWidth < 640) {
+    if (isMobile) {
       setActiveChip((prev) =>
         prev?.coffee.name === coffee.name ? null : { coffee, anchorRect: e.currentTarget.getBoundingClientRect() }
       );
@@ -843,9 +911,58 @@ function TagView() {
 
 // ─── Heatmap View ────────────────────────────────────────────────────────────
 
-function HeatmapTooltip({ coffee, dimIndex, anchorRect }) {
+// Shared body for both the desktop hover tooltip and the mobile tap sheet.
+function HeatmapHighlightContent({ coffee, dimIndex }) {
   const color = DIM_COLORS[dimIndex];
   const highlight = coffee.highlights[dimIndex];
+  return (
+    <>
+      {/* Header */}
+      <div style={{
+        fontSize: TYPE.micro, color, letterSpacing: "0.2em",
+        textTransform: "uppercase", marginBottom: 8,
+      }}>
+        {coffee.name} · {DIMS[dimIndex]}
+      </div>
+
+      {highlight ? (
+        <>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 7 }}>
+            {highlight.tags.map((tag) => (
+              <span key={tag} style={{
+                fontSize: TYPE.micro, color,
+                background: `${color}30`,
+                border: `1px solid ${color}55`,
+                borderRadius: 20,
+                padding: "3px 9px",
+                letterSpacing: "0.04em",
+                whiteSpace: "nowrap",
+              }}>
+                {tag}
+              </span>
+            ))}
+          </div>
+          <p style={{
+            margin: 0, fontSize: TYPE.small, color: COLORS.label,
+            fontStyle: "italic", lineHeight: 1.6, letterSpacing: "0.02em",
+          }}>
+            {highlight.note}
+          </p>
+        </>
+      ) : (
+        <p style={{
+          margin: 0, fontSize: TYPE.small, color: COLORS.sub,
+          fontStyle: "italic", lineHeight: 1.55,
+        }}>
+          Not a prominent characteristic for this origin.
+        </p>
+      )}
+    </>
+  );
+}
+
+function HeatmapTooltip({ coffee, dimIndex, anchorRect }) {
+  const color = DIM_COLORS[dimIndex];
   const TOOLTIP_WIDTH = 220;
   const APPROX_HEIGHT = 160;
   const viewW = document.documentElement.clientWidth;
@@ -878,46 +995,7 @@ function HeatmapTooltip({ coffee, dimIndex, anchorRect }) {
         pointerEvents: "none",
       }}
     >
-      {/* Header */}
-      <div style={{
-        fontSize: 10, color, letterSpacing: "0.2em",
-        textTransform: "uppercase", marginBottom: 8,
-      }}>
-        {coffee.name} · {DIMS[dimIndex]}
-      </div>
-
-      {highlight ? (
-        <>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 7 }}>
-            {highlight.tags.map((tag) => (
-              <span key={tag} style={{
-                fontSize: 9, color,
-                background: `${color}30`,
-                border: `1px solid ${color}55`,
-                borderRadius: 20,
-                padding: "2px 8px",
-                letterSpacing: "0.04em",
-                whiteSpace: "nowrap",
-              }}>
-                {tag}
-              </span>
-            ))}
-          </div>
-          <p style={{
-            margin: 0, fontSize: 10, color: COLORS.label,
-            fontStyle: "italic", lineHeight: 1.6, letterSpacing: "0.02em",
-          }}>
-            {highlight.note}
-          </p>
-        </>
-      ) : (
-        <p style={{
-          margin: 0, fontSize: 10, color: COLORS.sub,
-          fontStyle: "italic", lineHeight: 1.55,
-        }}>
-          Not a prominent characteristic for this origin.
-        </p>
-      )}
+      <HeatmapHighlightContent coffee={coffee} dimIndex={dimIndex} />
     </div>
   );
 }
@@ -925,12 +1003,13 @@ function HeatmapTooltip({ coffee, dimIndex, anchorRect }) {
 // One score cell owns its own hover state so hovering it doesn't re-render the
 // whole 224-cell grid. It reports the tooltip up via the stable onShow/onHide
 // callbacks (which never change identity), so HeatmapRow stays memoized.
-const HeatmapCell = memo(function HeatmapCell({ coffee, dimIndex, score, onShow, onHide }) {
+const HeatmapCell = memo(function HeatmapCell({ coffee, dimIndex, score, onShow, onHide, onTap }) {
   const [hovered, setHovered] = useState(false);
   return (
     <div
       onMouseEnter={(e) => { setHovered(true); onShow(coffee, dimIndex, e.currentTarget.getBoundingClientRect()); }}
       onMouseLeave={() => { setHovered(false); onHide(); }}
+      onClick={() => onTap(coffee, dimIndex)}
       style={{
         position: "relative",
         borderTop: `1px solid ${COLORS.cardBorder}`,
@@ -940,7 +1019,8 @@ const HeatmapCell = memo(function HeatmapCell({ coffee, dimIndex, score, onShow,
         borderRadius: 3,
         overflow: "hidden",
         minHeight: 44,
-        cursor: "default",
+        cursor: "pointer",
+        touchAction: "manipulation",
       }}
     >
       {/* Color fill */}
@@ -975,12 +1055,12 @@ const HeatmapCell = memo(function HeatmapCell({ coffee, dimIndex, score, onShow,
   );
 });
 
-const HeatmapRow = memo(function HeatmapRow({ coffee, onShow, onHide }) {
+const HeatmapRow = memo(function HeatmapRow({ coffee, onShow, onHide, onTap }) {
   return (
     <>
       {/* Name cell */}
-      <div style={{
-        padding: "10px 10px 10px 4px",
+      <div className="hm-name" style={{
+        padding: "10px 6px 10px 2px",
         borderTop: `1px solid ${COLORS.cardBorder}`,
         display: "flex",
         flexDirection: "column",
@@ -988,20 +1068,21 @@ const HeatmapRow = memo(function HeatmapRow({ coffee, onShow, onHide }) {
         gap: 3,
       }}>
         <div style={{
-          fontSize: 12, color: "#F0DEB8",
-          fontFamily: "Georgia, serif", letterSpacing: "0.03em",
+          fontSize: TYPE.small, color: "#F0DEB8",
+          fontFamily: "Georgia, serif", letterSpacing: "0.02em",
           lineHeight: 1.2,
         }}>
           {coffee.name}
         </div>
         <div style={{
-          fontSize: 9, color: COLORS.sub,
-          letterSpacing: "0.15em", textTransform: "uppercase",
+          fontSize: TYPE.micro, color: COLORS.sub,
+          letterSpacing: "0.1em", textTransform: "uppercase",
         }}>
           {coffee.region}
         </div>
-        <div style={{
-          fontSize: 9, color: COLORS.sub,
+        {/* Note hidden on the narrowest screens to keep the grid scroll-free. */}
+        <div className="hm-note" style={{
+          fontSize: TYPE.micro, color: COLORS.sub,
           fontStyle: "italic", fontFamily: "Georgia, serif",
           letterSpacing: "0.02em", lineHeight: 1.4, opacity: 0.8,
         }}>
@@ -1018,57 +1099,67 @@ const HeatmapRow = memo(function HeatmapRow({ coffee, onShow, onHide }) {
           score={score}
           onShow={onShow}
           onHide={onHide}
+          onTap={onTap}
         />
       ))}
     </>
   );
 });
 
+// Two-letter abbreviations for the dimension headers on narrow screens.
+const DIM_ABBR = ["Fr", "Fl", "Sw", "Nu", "Sp", "Ea"];
+
 function HeatmapView({ coffees, sortDim, onDimClick, sortDir }) {
   const [tooltip, setTooltip] = useState(null);
-  // tooltip: { coffee, dimIndex, anchorRect } | null
+  // tooltip: { coffee, dimIndex, anchorRect } | null  (desktop hover)
+  const [sheet, setSheet] = useState(null);
+  // sheet: { coffee, dimIndex } | null  (tap — reuses the bottom-sheet primitive)
+  const isMobile = useMediaQuery(MOBILE_QUERY);
 
   // Stable callbacks so memoized rows/cells never re-render on tooltip changes.
   const handleShow = useCallback((coffee, dimIndex, anchorRect) => {
     setTooltip({ coffee, dimIndex, anchorRect });
   }, []);
   const handleHide = useCallback(() => setTooltip(null), []);
+  const handleTap = useCallback((coffee, dimIndex) => {
+    setTooltip(null);
+    setSheet({ coffee, dimIndex });
+  }, []);
 
   return (
-    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "1fr repeat(6, minmax(44px, 60px))",
-        minWidth: 360,
-        gap: 2,
-      }}>
+    <div>
+      <div className="heatmap-grid" style={{ display: "grid", gap: 2 }}>
         {/* Header row */}
-        <div style={{ padding: "6px 8px" }} />
+        <div style={{ padding: "6px 4px" }} />
         {DIMS.map((d, i) => {
           const active = sortDim === i;
+          const arrow = active ? (sortDir === "desc" ? " ↓" : " ↑") : "";
           return (
             <div
               key={d}
               onClick={() => onDimClick(i)}
               style={{
-                padding: "8px 4px 6px",
+                padding: "8px 2px 6px",
                 textAlign: "center",
                 cursor: "pointer",
                 borderRadius: 4,
                 userSelect: "none",
+                touchAction: "manipulation",
               }}
             >
               <div style={{
-                fontSize: 9.5,
+                fontSize: TYPE.micro,
                 color: DIM_COLORS[i],
-                letterSpacing: "0.08em",
+                letterSpacing: "0.06em",
                 opacity: active ? 1 : 0.75,
                 borderBottom: active ? `1px solid ${DIM_COLORS[i]}` : "1px solid transparent",
                 paddingBottom: 2,
                 transition: "opacity 0.2s",
                 display: "inline-block",
               }}>
-                {d}{active ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
+                {/* Full label on wide screens, two-letter on narrow. */}
+                <span className="hm-dim-full">{d}{arrow}</span>
+                <span className="hm-dim-abbr">{DIM_ABBR[i]}{arrow}</span>
               </div>
             </div>
           );
@@ -1081,17 +1172,39 @@ function HeatmapView({ coffees, sortDim, onDimClick, sortDir }) {
             coffee={coffee}
             onShow={handleShow}
             onHide={handleHide}
+            onTap={handleTap}
           />
         ))}
       </div>
 
-      {/* Tooltip portal */}
-      {tooltip && (
+      {/* Desktop hover tooltip (suppressed on touch breakpoint) */}
+      {!isMobile && tooltip && (
         <HeatmapTooltip
           coffee={tooltip.coffee}
           dimIndex={tooltip.dimIndex}
           anchorRect={tooltip.anchorRect}
         />
+      )}
+
+      {/* Tap → bottom sheet: the path into the curated highlights from the heatmap */}
+      {sheet && (
+        <BottomSheet onClose={() => setSheet(null)} accent={`${DIM_COLORS[sheet.dimIndex]}99`}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: -6, marginBottom: 2 }}>
+            <button
+              onClick={() => setSheet(null)}
+              aria-label="Close"
+              style={{
+                background: "none", border: "none",
+                color: COLORS.sub, fontSize: 22, cursor: "pointer",
+                fontFamily: "Georgia, serif", lineHeight: 1,
+                width: 36, height: 36, marginRight: -8,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                touchAction: "manipulation",
+              }}
+            >×</button>
+          </div>
+          <HeatmapHighlightContent coffee={sheet.coffee} dimIndex={sheet.dimIndex} />
+        </BottomSheet>
       )}
     </div>
   );
@@ -1100,6 +1213,7 @@ function HeatmapView({ coffees, sortDim, onDimClick, sortDir }) {
 // ─── Methodology Modal ────────────────────────────────────────────────────────
 
 function MethodologyModal({ onClose }) {
+  useBodyScrollLock(true);
   return (
     <div
       onClick={onClose}
@@ -1116,6 +1230,7 @@ function MethodologyModal({ onClose }) {
           width: "min(600px, 100%)",
           maxHeight: "calc(100vh - 40px)",
           overflowY: "auto",
+          overscrollBehavior: "contain",
           background: "#1F1409",
           border: `1px solid ${COLORS.gridOuter}`,
           borderRadius: 10,
@@ -1142,10 +1257,13 @@ function MethodologyModal({ onClose }) {
               How scores are assigned
             </h2>
           </div>
-          <button onClick={onClose} style={{
+          <button onClick={onClose} aria-label="Close" style={{
             background: "none", border: "none", color: COLORS.sub,
-            fontSize: 20, cursor: "pointer", padding: "0 0 0 16px",
-            fontFamily: "Georgia, serif", lineHeight: 1, flexShrink: 0,
+            fontSize: 24, cursor: "pointer", flexShrink: 0,
+            fontFamily: "Georgia, serif", lineHeight: 1,
+            width: 40, height: 40, marginRight: -8, marginTop: -8,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            touchAction: "manipulation",
           }}>×</button>
         </div>
 
@@ -1205,7 +1323,7 @@ function MethodologyModal({ onClose }) {
 
         <div style={{ width: "100%", height: 1, background: COLORS.cardBorder, margin: "20px 0 16px" }} />
         <p style={{
-          margin: 0, fontSize: 9.5, color: "#3A2A14",
+          margin: 0, fontSize: TYPE.micro, color: COLORS.faint,
           letterSpacing: "0.1em", fontStyle: "italic", textAlign: "center",
         }}>
           Scores are illustrative and educational — not the result of controlled sensory analysis.
@@ -1291,6 +1409,7 @@ function getSimilar(coffee, n = 3) {
 
 function CoffeeDetailModal({ coffee, onClose, onSelect }) {
   const [showProcessExplainer, setShowProcessExplainer] = useState(false);
+  useBodyScrollLock(true);
 
   // Close on Escape key
   useEffect(() => {
@@ -1326,6 +1445,7 @@ function CoffeeDetailModal({ coffee, onClose, onSelect }) {
           width: "min(760px, 100%)",
           maxHeight: "calc(100vh - 40px)",
           overflowY: "auto",
+          overscrollBehavior: "contain",
           background: "#1A1008",
           border: `1px solid ${COLORS.gridOuter}`,
           borderRadius: 10,
@@ -1361,11 +1481,15 @@ function CoffeeDetailModal({ coffee, onClose, onSelect }) {
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             <button
               onClick={onClose}
+              aria-label="Close"
               style={{
                 background: "none", border: "none",
-                color: COLORS.sub, fontSize: 22,
-                cursor: "pointer", padding: "0 0 0 4px",
+                color: COLORS.sub, fontSize: 24,
+                cursor: "pointer",
                 fontFamily: "Georgia, serif", lineHeight: 1,
+                width: 40, height: 40, marginRight: -8,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                touchAction: "manipulation",
               }}
             >×</button>
           </div>
@@ -2217,9 +2341,10 @@ function CompareView() {
 
   const selectStyle = {
     appearance: "none", WebkitAppearance: "none", MozAppearance: "none",
+    // 16px kills iOS Safari's focus auto-zoom on form controls.
     background: COLORS.cardBg, border: `1px solid ${COLORS.cardBorder}`,
-    borderRadius: 6, color: COLORS.label, fontSize: 13,
-    fontFamily: "Georgia, serif", padding: "5px 28px 5px 10px", cursor: "pointer",
+    borderRadius: 6, color: COLORS.label, fontSize: 16,
+    fontFamily: "Georgia, serif", padding: "8px 30px 8px 12px", cursor: "pointer",
     boxSizing: "border-box",
     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23A08C6E'/%3E%3C/svg%3E")`,
     backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center",
@@ -2411,6 +2536,22 @@ export default function CoffeeInfographic() {
       }}
     >
       <style>{`
+        /* Touch hardening: kill the 300ms tap delay / double-tap zoom on every
+           interactive element so taps land on the first try. */
+        button, select, a, [role="button"], .coffee-card,
+        .nav-tabs button, .heatmap-grid > div {
+          touch-action: manipulation;
+        }
+        /* Effective tap target ≥36px for chip/pill buttons without enlarging
+           their visual box: a transparent pseudo-element pads the hit area. */
+        .tap-chip { position: relative; }
+        .tap-chip::after {
+          content: "";
+          position: absolute;
+          top: 50%; left: 0; right: 0;
+          transform: translateY(-50%);
+          min-height: 36px; height: 100%;
+        }
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(12px); }
           to   { opacity: 1; transform: translateY(0); }
@@ -2449,6 +2590,29 @@ export default function CoffeeInfographic() {
         }
         .radar-dot-group:hover .radar-dot {
           filter: brightness(1.25);
+        }
+        /* Heatmap: wide screens get roomy score columns and the full note;
+           narrow phones get a tight name column, two-letter dimension headers,
+           and no note — so the whole grid fits with NO horizontal scroll. */
+        .heatmap-grid {
+          grid-template-columns: 1fr repeat(6, minmax(40px, 56px));
+        }
+        .hm-dim-abbr { display: none; }
+        .hm-dim-full { display: inline; }
+        @media (max-width: 639px) {
+          .heatmap-grid {
+            grid-template-columns: minmax(88px, 1fr) repeat(6, minmax(0, 1fr));
+          }
+          .hm-dim-abbr { display: inline; }
+          .hm-dim-full { display: none; }
+          .hm-note { display: none; }
+        }
+        @media (max-width: 360px) {
+          .heatmap-grid {
+            gap: 1px;
+            grid-template-columns: minmax(72px, 1fr) repeat(6, minmax(0, 1fr));
+          }
+          .hm-name { padding-right: 2px !important; }
         }
         .coffee-grid, .tag-grid {
           display: grid;
@@ -2670,7 +2834,11 @@ export default function CoffeeInfographic() {
         </div>
 
         {/* View toggle */}
-        <div className="nav-tabs" style={{ marginBottom: 24 }}>
+        <div className="nav-tabs" style={{
+          marginBottom: 24,
+          position: "sticky", top: 0, zIndex: 60,
+          background: COLORS.bg, paddingTop: 6, paddingBottom: 6,
+        }}>
           {[
             { key: "cards",    label: "Origins" },
             { key: "compare",  label: "Compare" },
@@ -2703,7 +2871,13 @@ export default function CoffeeInfographic() {
 
         {/* Brew method + roast level filters */}
         {view === "cards" && (
-          <div style={{ marginBottom: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="filter-row" style={{
+            marginBottom: 20, display: "flex", flexDirection: "column", gap: 8,
+            position: "sticky", top: 44, zIndex: 50,
+            background: COLORS.bg,
+            paddingTop: 8, paddingBottom: 10,
+            borderBottom: `1px solid ${COLORS.cardBorder}`,
+          }}>
             {[
               {
                 label: "Brew Method",
@@ -2732,9 +2906,10 @@ export default function CoffeeInfographic() {
                     <button
                       key={item}
                       onClick={() => toggle(item)}
+                      className="tap-chip"
                       style={{
-                        fontSize: 9, fontFamily: "Georgia, serif", letterSpacing: "0.06em",
-                        padding: "3px 10px", borderRadius: 12,
+                        fontSize: TYPE.micro, fontFamily: "Georgia, serif", letterSpacing: "0.06em",
+                        padding: "6px 11px", borderRadius: 14,
                         border: `1px solid ${active ? COLORS.gridOuter : COLORS.cardBorder}`,
                         background: active ? `${COLORS.gridOuter}22` : "transparent",
                         color: active ? "#F0DEB8" : COLORS.sub,
@@ -2747,27 +2922,30 @@ export default function CoffeeInfographic() {
                 })}
               </div>
             ))}
-            {anyFilterActive && (
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 2 }}>
-                <span style={{
-                  fontSize: 9, color: COLORS.sub, fontFamily: "Georgia, serif", fontStyle: "italic",
-                }}>
-                  {filteredCoffees.length} of {coffees.length} origins
-                </span>
+            {/* Result count is always visible — at rest it advertises that
+                filters exist; clear-all only appears when something is active. */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 2 }}>
+              <span style={{
+                fontSize: TYPE.micro, color: COLORS.sub, fontFamily: "Georgia, serif", fontStyle: "italic",
+              }}>
+                {filteredCoffees.length} of {coffees.length} origins
+              </span>
+              {anyFilterActive && (
                 <button
                   onClick={clearAllFilters}
+                  className="tap-chip"
                   style={{
-                    fontSize: 9, fontFamily: "Georgia, serif", letterSpacing: "0.06em",
-                    padding: "2px 10px", borderRadius: 12,
+                    fontSize: TYPE.micro, fontFamily: "Georgia, serif", letterSpacing: "0.06em",
+                    padding: "4px 11px", borderRadius: 12,
                     border: `1px solid ${COLORS.cardBorder}`,
                     background: "transparent", color: COLORS.sub,
-                    cursor: "pointer", opacity: 0.6,
+                    cursor: "pointer", opacity: 0.75,
                   }}
                 >
                   clear all
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
 
@@ -2820,7 +2998,7 @@ export default function CoffeeInfographic() {
           display: "flex", flexDirection: "column", gap: 10,
         }}>
           <div style={{
-            fontSize: 9.5, color: "#3A2A14",
+            fontSize: TYPE.micro, color: COLORS.faint,
             letterSpacing: "0.2em", textTransform: "uppercase",
           }}>
             Scores are illustrative averages across origins and processing methods
