@@ -64,7 +64,10 @@ and the existing two-origin `CompareRadar` — the seed of Compare Mode 2.0.
 
 ---
 
-## Sprint 1 — Stop the bleeding: functional bugs & rendering performance
+## Sprint 1 — Stop the bleeding: functional bugs & rendering performance ✅ COMPLETE
+
+**Status:** ✅ Done (commit `899869e`, branch `mobile-sprint-1-2`). All five items
+landed in `CoffeeInfographic.jsx`; build & lint clean. Exit criteria met.
 
 **Goal:** every view is *reachable and smooth* on a phone. No unreachable UI, no
 animation replay on filter, no wasted re-renders. This sprint is all inside
@@ -74,7 +77,7 @@ animation replay on filter, no wasted re-renders. This sprint is all inside
 Everything later in the roadmap (Compare Mode especially) builds on a card grid and
 filter system that must already feel instant.
 
-### 1.1 Fix nav-tab clipping
+### ✅ 1.1 Fix nav-tab clipping
 Replace `justify-content: center` on `.nav-tabs` with `flex-start` plus
 `margin-left: auto` on the first child / `margin-right: auto` on the last (the
 "safe center" pattern). Optionally add a subtle edge-fade gradient as a scroll
@@ -82,7 +85,7 @@ affordance.
 **Outcome:** all six tabs reachable on every screen width. This is a functional
 bug today — on narrow screens users literally cannot scroll back to "Origins."
 
-### 1.2 Mount-only card animation, stagger capped
+### ✅ 1.2 Mount-only card animation, stagger capped
 Move `fadeIn` to a CSS class applied only on first mount (e.g. animate via a class
 the card removes on `animationend`, or key the delay to a stable per-coffee value
 rather than the array index), and cap the stagger at ~8 items so the grid never
@@ -90,7 +93,7 @@ takes 2s to settle.
 **Outcome:** filtering feels instant — cards that survive a filter *stay put*
 instead of re-fading. This single change removes the most visible mobile jank.
 
-### 1.3 Memoize the hot paths
+### ✅ 1.3 Memoize the hot paths
 `React.memo(CoffeeCard)`, `useCallback` on the handlers passed into it, and key the
 heatmap row fragments (currently a key-less `<>` inside `.map()` — a React
 reconciliation warning today). Move heatmap tooltip state down so hover doesn't
@@ -99,13 +102,13 @@ re-render all 224 cells.
 diffs efficiently; hover/touch interactions stop doing grid-wide work. Biggest CPU
 win available for low-end phones.
 
-### 1.4 Compositor-friendly score bars
+### ✅ 1.4 Compositor-friendly score bars
 Change score-bar fills from animating `width` to `transform: scaleX()` with
 `transform-origin: left`.
 **Outcome:** 192 layout-animating elements become zero. Re-sorts and filters animate
 on the compositor thread — silky on mobile processors.
 
-### 1.5 Cheap rendering wins
+### ✅ 1.5 Cheap rendering wins
 Add `content-visibility: auto; contain-intrinsic-size: auto 420px;` to cards, and a
 `prefers-reduced-motion` media guard around `fadeIn`/`pulseRing`.
 **Outcome:** off-screen cards skip rendering entirely (lazy rendering for one line
@@ -117,7 +120,12 @@ at 320px width.
 
 ---
 
-## Sprint 2 — Touch-native & readable: the mobile usability pass
+## Sprint 2 — Touch-native & readable: the mobile usability pass ✅ COMPLETE
+
+**Status:** ✅ Done (commit `3668906`, branch `mobile-sprint-1-2`). All six items
+landed; build & lint clean. Added a shared `BottomSheet` primitive + `useMediaQuery`
+hook that Sprint 3 reuses. Note: og:image *tags* are wired and a placeholder
+`public/og-image.png` now exists — replace with a final rendered asset when ready.
 
 **Goal:** every interaction works with a thumb, every word is legible at arm's
 length, and the browser chrome/meta presents the site properly. After this sprint
@@ -127,7 +135,7 @@ there is no remaining reason to tell a mobile user "try it on desktop."
 changes also harden the exact components (bottom sheets, chips, radar dots) that
 Compare Mode 2.0 will reuse, so doing them first means Sprint 3 inherits good parts.
 
-### 2.1 Heatmap on touch
+### ✅ 2.1 Heatmap on touch
 Make cells tappable: tap opens the existing mobile bottom sheet showing that
 origin × dimension highlight (tags + curated note). Shrink/abbreviate to fit ~345px:
 tighter name column, two-letter or icon dimension headers on narrow screens, so the
@@ -136,7 +144,7 @@ grid fits without horizontal scroll on any mainstream phone.
 fully explorable. Phone users gain access to all 130+ curated tasting notes from the
 heatmap, and row labels never separate from their scores.
 
-### 2.2 Tap-target pass
+### ✅ 2.2 Tap-target pass
 Overlay invisible hit circles (`r=14`, `fill="transparent"`) on radar dots; bump all
 chips/buttons to ≥36px effective height; enlarge close buttons; add
 `touch-action: manipulation` globally on interactive elements.
@@ -144,7 +152,7 @@ chips/buttons to ≥36px effective height; enlarge close buttons; add
 (the site's best feature) becomes discoverable by thumb instead of requiring
 pixel-precision.
 
-### 2.3 Typography scale & contrast
+### ✅ 2.3 Typography scale & contrast
 Define a real type scale (≈ 11 / 13 / 15 / 18 / 24 / clamp-hero) in `rem` so user
 font-size settings are respected; floor body text at 11px equivalents. Fix the two
 contrast failures: `#3A2A14` text → a legible muted tone; nudge `#8B6F4E` →
@@ -155,7 +163,7 @@ tracking we already have, not miniature text. The scoring disclaimer becomes
 readable (it's a credibility statement; today it's invisible at 1.35:1). The
 iOS focus-zoom bug disappears.
 
-### 2.4 Bottom-sheet hardening
+### ✅ 2.4 Bottom-sheet hardening
 Body scroll-lock while a sheet/modal is open; `padding-bottom:
 env(safe-area-inset-bottom)` (home-indicator clearance); `overscroll-behavior:
 contain`; replace the four render-time `window.innerWidth < 640` reads with a single
@@ -164,14 +172,14 @@ contain`; replace the four render-time `window.innerWidth < 640` reads with a si
 home indicator, and rotation mid-interaction no longer strands the UI in the wrong
 layout.
 
-### 2.5 Head & shareability fixes
+### ✅ 2.5 Head & shareability fixes
 `<meta name="theme-color" content="#1A1008">`; correct the meta description ("20" →
 "32 single-origin coffees"); add an `og:image` (a rendered radar over the dark
 palette makes link shares beautiful).
 **Outcome:** mobile browser chrome matches the page instead of flashing white;
 shared links carry an image card; metadata stops underselling the dataset.
 
-### 2.6 Filter discoverability
+### ✅ 2.6 Filter discoverability
 Always show the result count ("32 of 32 origins" at rest, not only when filtered),
 and make the filter row `position: sticky` beneath the tabs on the cards view.
 **Outcome:** users learn the filters exist (the resting count advertises them) and
