@@ -427,6 +427,7 @@ const PROCESS_EXPLAINERS = {
   "Honey": "The skin is removed but the sticky mucilage layer (the 'honey') is left on the bean during drying. The more mucilage retained, the sweeter and more fruit-forward the cup. Yellow Honey ≈ 50%, Red Honey ≈ 75%, Black Honey ≈ 100% mucilage remaining. Costa Rica perfected this method.",
   "Wet-Hulled": "Unique to Indonesia (called Giling Basah). The parchment layer is removed while the bean is still at ~50% moisture — far earlier than any other method — then dried further. This fundamentally alters the bean's cellular structure, producing the characteristic low acidity, full body, and earthy, sometimes herbal depth that defines Sumatran and Sulawesi coffees.",
   "Monsooned": "Unique to India's Malabar Coast. Green coffee is spread in open warehouses and exposed to humid monsoon winds for 12–16 weeks. The beans swell to nearly twice their size, absorb moisture, and lose almost all acidity. The process recreates what happened accidentally to Indian coffee during 19th-century sea voyages to Europe — and the result is unlike anything else: malty, spicy, and deeply earthy.",
+  "Pulped Natural": "A Brazilian hybrid between washed and natural. The skin is removed (pulped) but the bean is dried with most of its mucilage still attached — no fermentation tank, no full-cherry drying. The result sits between the two parent methods: more body and sweetness than a washed coffee, but cleaner and less wild than a full natural. The backbone of much of Brazil's specialty crop.",
 };
 
 const PROCESS_COLORS = {
@@ -435,6 +436,15 @@ const PROCESS_COLORS = {
   "Honey":      { bg: "#2E2A0A", border: "#8A7A20", text: "#D0C060" },
   "Wet-Hulled": { bg: "#1A2A1A", border: "#3A6A3A", text: "#7AB87A" },
   "Monsooned":  { bg: "#2A1A2E", border: "#6A3A8A", text: "#B07AD0" },
+  "Pulped Natural": { bg: "#2A220E", border: "#8A6A2A", text: "#D0A860" },
+};
+
+// Botanical species palette — subtle, in the brown/gold family so the badge
+// reads as secondary to the (more colorful) process badge beside it.
+const SPECIES_COLORS = {
+  "Arabica":  { bg: "#1F1409", border: "#5A4422", text: "#C4A882" },
+  "Robusta":  { bg: "#241808", border: "#6A4A20", text: "#CFA362" },
+  "Liberica": { bg: "#221016", border: "#6A3A4A", text: "#CF8AA0" },
 };
 
 const REGION_COLORS = {
@@ -471,6 +481,33 @@ function ProcessBadge({ process, size = "sm" }) {
       textTransform: "uppercase",
     }}>
       {process}
+    </span>
+  );
+}
+
+// ─── Species Badge (4.4) ─────────────────────────────────────────────────────
+// Styled like ProcessBadge but quieter — most origins are Arabica, so the badge
+// earns its keep mainly by flagging the Robusta (Vietnamese) and Liberica
+// (Filipino Barako) exceptions.
+function SpeciesBadge({ species, size = "sm" }) {
+  const c = SPECIES_COLORS[species] ?? { bg: "#1F1409", border: COLORS.gridOuter, text: COLORS.label };
+  const fs = size === "lg" ? 10 : 8.5;
+  const px = size === "lg" ? 10 : 7;
+  const py = size === "lg" ? 3 : 2;
+  return (
+    <span style={{
+      display: "inline-block",
+      fontSize: fs,
+      color: c.text,
+      background: c.bg,
+      border: `1px solid ${c.border}`,
+      borderRadius: 20,
+      padding: `${py}px ${px}px`,
+      letterSpacing: "0.1em",
+      fontFamily: "Georgia, serif",
+      textTransform: "uppercase",
+    }}>
+      {species}
     </span>
   );
 }
@@ -544,7 +581,10 @@ const CoffeeCard = memo(function CoffeeCard({ coffee, index, activePopoverDim, o
         }}>
           {coffee.name}
         </div>
-        <ProcessBadge process={coffee.process} />
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+          <ProcessBadge process={coffee.processes.primary} />
+          <SpeciesBadge species={coffee.species} />
+        </div>
       </div>
 
       <RadarChart
@@ -624,12 +664,36 @@ const TAG_INDEX = DIMS.map((_, dimIdx) => {
     .map(([tag, cs]) => [tag, cs.slice().sort((a, b) => a.name.localeCompare(b.name))]);
 });
 
-// Process index: process method → coffees[]
+// Every distinct processing method that appears as a primary on any origin,
+// in descending order of how many origins use it as primary. Drives the
+// process filter row and the Tags-view process section.
+const ALL_PROCESSES = (() => {
+  const counts = new Map();
+  coffees.forEach((c) => {
+    counts.set(c.processes.primary, (counts.get(c.processes.primary) ?? 0) + 1);
+  });
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([p]) => p);
+})();
+
+// True when an origin offers `process` either as its primary method or among
+// the other methods it ships in real volume (`also`).
+function originHasProcess(coffee, process) {
+  return coffee.processes.primary === process || coffee.processes.also.includes(process);
+}
+
+// Process index: process method → coffees[] (matches primary OR also)
 const PROCESS_INDEX = (() => {
   const map = new Map();
   coffees.forEach((coffee) => {
-    if (!map.has(coffee.process)) map.set(coffee.process, []);
-    map.get(coffee.process).push(coffee);
+    [coffee.processes.primary, ...coffee.processes.also].forEach((process) => {
+      if (!map.has(process)) map.set(process, []);
+      // Guard against an origin listing the same method twice.
+      if (!map.get(process).some((c) => c.name === coffee.name)) {
+        map.get(process).push(coffee);
+      }
+    });
   });
   return Array.from(map.entries())
     .sort((a, b) => b[1].length - a[1].length)
@@ -1309,7 +1373,11 @@ function MethodologyModal({ onClose }) {
           each origin — individual lots vary significantly with altitude,
           harvest year, and producer. Natural and honey-processed lots tend to
           score higher on Fruity and Sweet; washed lots tend toward cleaner
-          Floral and brighter acidity.
+          Floral and brighter acidity. A handful of origins are traditionally
+          roasted darker than this baseline — Vietnamese, Sumatran, Brazilian,
+          Indian Monsoon, Sulawesi Toraja, and Filipino Barako among them — and
+          their scores reflect that darker cup. Where that is the case, the
+          origin's detail panel notes the roast it was scored at.
         </p>
 
         <div style={{ width: "100%", height: 1, background: COLORS.cardBorder, marginBottom: 20 }} />
@@ -1368,6 +1436,13 @@ function MethodologyModal({ onClose }) {
 
 const ROAST_LEVELS = ["Light", "Light–Medium", "Medium", "Medium–Dark", "Dark"];
 const ROAST_COLORS = ["#F5D99C", "#D4A843", "#A0623A", "#6B3520", "#2A1008"];
+const ROAST_GRADIENT = `linear-gradient(to right, ${ROAST_COLORS.join(", ")})`;
+
+// Numeric index 0–4 on ROAST_LEVELS, derived from each origin's display roast
+// string at module load (the data carries no roastIndex). -1 if unrecognised.
+function roastIndexOf(roast) {
+  return ROAST_LEVELS.indexOf(roast);
+}
 
 function RoastBar({ roast }) {
   const idx = ROAST_LEVELS.indexOf(roast);
@@ -1422,6 +1497,85 @@ function RoastBar({ roast }) {
       </div>
     </div>
   );
+}
+
+// ─── Roast Spectrum Filter (4.1) ─────────────────────────────────────────────
+// Replaces the five exact-match roast chips. The user taps levels on the
+// RoastBar gradient to build a contiguous range; the active range is rendered
+// as a bright band, the rest dimmed. `range` is { lo, hi } indices or null.
+// Selecting a single level still surfaces its neighbours because the matcher
+// (roastInRange) widens the band by ±1 — so "Light" surfaces Light–Medium.
+function RoastSpectrumFilter({ range, onPick, onClear }) {
+  return (
+    <div style={{ flex: 1, minWidth: 200 }}>
+      <div style={{
+        position: "relative", height: 26, borderRadius: 6,
+        display: "flex", overflow: "hidden",
+        border: `1px solid ${COLORS.cardBorder}`,
+      }}>
+        {ROAST_LEVELS.map((lvl, i) => {
+          const inRange = range != null && i >= range.lo && i <= range.hi;
+          return (
+            <button
+              key={lvl}
+              onClick={() => onPick(i)}
+              aria-pressed={inRange}
+              title={lvl}
+              style={{
+                flex: 1,
+                border: "none",
+                borderLeft: i === 0 ? "none" : `1px solid ${COLORS.bg}55`,
+                background: ROAST_COLORS[i],
+                opacity: range == null ? 0.5 : inRange ? 1 : 0.28,
+                cursor: "pointer",
+                padding: 0,
+                transition: "opacity 0.15s",
+              }}
+            />
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+        {ROAST_LEVELS.map((lvl, i) => {
+          const inRange = range != null && i >= range.lo && i <= range.hi;
+          return (
+            <span key={lvl} style={{
+              fontSize: 8, flex: 1, textAlign: "center",
+              color: inRange ? ROAST_COLORS[i] : COLORS.sub,
+              fontFamily: "Georgia, serif",
+              fontWeight: inRange ? "bold" : "normal",
+              letterSpacing: "0.02em",
+              transition: "color 0.15s",
+            }}>
+              {lvl}
+            </span>
+          );
+        })}
+      </div>
+      {range != null && (
+        <button
+          onClick={onClear}
+          style={{
+            marginTop: 4, fontSize: 8.5, fontFamily: "Georgia, serif",
+            background: "none", border: "none", color: COLORS.sub,
+            cursor: "pointer", padding: 0, opacity: 0.75,
+            textDecoration: "underline", letterSpacing: "0.04em",
+          }}
+        >
+          clear roast range
+        </button>
+      )}
+    </div>
+  );
+}
+
+// True when an origin's roast index falls inside the selected range, widened by
+// ±1 so a single-level pick still surfaces adjacent roasts (4.1 exit criterion).
+function roastInRange(roast, range) {
+  if (range == null) return true;
+  const i = roastIndexOf(roast);
+  if (i === -1) return false;
+  return i >= range.lo - 1 && i <= range.hi + 1;
 }
 
 // ─── Coffee Detail Modal ──────────────────────────────────────────────────────
@@ -1507,7 +1661,10 @@ function CoffeeDetailModal({ coffee, onClose, onSelect }) {
             }}>
               {coffee.name}
             </h2>
-            <ProcessBadge process={coffee.process} size="lg" />
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <ProcessBadge process={coffee.processes.primary} size="lg" />
+              <SpeciesBadge species={coffee.species} size="lg" />
+            </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             <button
@@ -1609,6 +1766,18 @@ function CoffeeDetailModal({ coffee, onClose, onSelect }) {
             {/* Roast bar */}
             <RoastBar roast={coffee.roast} />
 
+            {/* Scored-at baseline note (4.5) — only when scores reference a
+                roast other than the light-to-medium baseline. */}
+            {coffee.scoredAt && (
+              <div style={{
+                fontSize: 10, color: COLORS.label, fontStyle: "italic",
+                letterSpacing: "0.02em", lineHeight: 1.6, marginTop: -10,
+              }}>
+                Scored at: {coffee.scoredAt} roast — this origin is traditionally
+                enjoyed at a darker roast, and its scores reflect that cup.
+              </div>
+            )}
+
             {/* Processing method + explainer */}
             <div>
               <div style={{
@@ -1618,8 +1787,8 @@ function CoffeeDetailModal({ coffee, onClose, onSelect }) {
                 Processing Method
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <ProcessBadge process={coffee.process} size="lg" />
-                {PROCESS_EXPLAINERS[coffee.process] && (
+                <ProcessBadge process={coffee.processes.primary} size="lg" />
+                {PROCESS_EXPLAINERS[coffee.processes.primary] && (
                   <button
                     onClick={() => setShowProcessExplainer(p => !p)}
                     style={{
@@ -1634,14 +1803,22 @@ function CoffeeDetailModal({ coffee, onClose, onSelect }) {
                   </button>
                 )}
               </div>
-              {showProcessExplainer && PROCESS_EXPLAINERS[coffee.process] && (
+              {coffee.processes.also.length > 0 && (
+                <div style={{
+                  margin: "8px 0 0", fontSize: 10, color: COLORS.sub,
+                  fontStyle: "italic", letterSpacing: "0.02em",
+                }}>
+                  also commonly: {coffee.processes.also.join(", ")}
+                </div>
+              )}
+              {showProcessExplainer && PROCESS_EXPLAINERS[coffee.processes.primary] && (
                 <p style={{
                   margin: "10px 0 0", fontSize: 10.5, color: COLORS.sub,
                   fontStyle: "italic", lineHeight: 1.65, letterSpacing: "0.02em",
-                  borderLeft: `2px solid ${PROCESS_COLORS[coffee.process]?.border ?? COLORS.cardBorder}`,
+                  borderLeft: `2px solid ${PROCESS_COLORS[coffee.processes.primary]?.border ?? COLORS.cardBorder}`,
                   paddingLeft: 10,
                 }}>
-                  {PROCESS_EXPLAINERS[coffee.process]}
+                  {PROCESS_EXPLAINERS[coffee.processes.primary]}
                 </p>
               )}
             </div>
@@ -2041,7 +2218,8 @@ function DiscoverView({ onSelectCoffee }) {
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 14, color: "#F0DEB8", fontFamily: "Georgia, serif" }}>{coffee.name}</span>
                     <span style={{ fontSize: 9, color: COLORS.sub, letterSpacing: "0.15em", textTransform: "uppercase" }}>{coffee.region}</span>
-                    <ProcessBadge process={coffee.process} />
+                    <ProcessBadge process={coffee.processes.primary} />
+                    <SpeciesBadge species={coffee.species} />
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                     <div style={{ flex: 1, height: 3, background: "#2A1A08", borderRadius: 2, overflow: "hidden" }}>
@@ -2261,7 +2439,7 @@ function PCAScatter() {
           const coffee = coffees[i];
           const fill   = colorBy === "region"
             ? (REGION_COLORS[coffee.region] ?? COLORS.label)
-            : (PROCESS_COLORS[coffee.process]?.text ?? COLORS.label);
+            : (PROCESS_COLORS[coffee.processes.primary]?.text ?? COLORS.label);
           const isHot  = tooltip?.coffee === coffee;
           return (
             <g key={i} style={{ cursor: "default" }}
@@ -2620,8 +2798,11 @@ function CompareScreen({ coffees, onRemove, onClearAll }) {
             </div>
             <div style={{ fontSize: 16, color: "#F0DEB8", fontFamily: "Georgia, serif", marginBottom: 8 }}>{c.name}</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10, alignItems: "center" }}>
-              <ProcessBadge process={c.process} size="sm" />
-              <span style={{ fontSize: 9, color: COLORS.sub }}>{c.roast} roast</span>
+              <ProcessBadge process={c.processes.primary} size="sm" />
+              <SpeciesBadge species={c.species} size="sm" />
+              <span style={{ fontSize: 9, color: COLORS.sub }}>
+                {c.roast} roast{c.scoredAt ? ` · scored at ${c.scoredAt}` : ""}
+              </span>
             </div>
             {c.cultivars?.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 10 }}>
@@ -2766,9 +2947,12 @@ function CompareView() {
               {c.region}
             </div>
             <div style={{ fontSize: 16, color: "#F0DEB8", fontFamily: "Georgia, serif", marginBottom: 8 }}>{c.name}</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-              <ProcessBadge process={c.process} size="sm" />
-              <span style={{ fontSize: 9, color: COLORS.sub, alignSelf: "center" }}>{c.roast} roast</span>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10, alignItems: "center" }}>
+              <ProcessBadge process={c.processes.primary} size="sm" />
+              <SpeciesBadge species={c.species} size="sm" />
+              <span style={{ fontSize: 9, color: COLORS.sub, alignSelf: "center" }}>
+                {c.roast} roast{c.scoredAt ? ` · scored at ${c.scoredAt}` : ""}
+              </span>
             </div>
             {c.cultivars?.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 10 }}>
@@ -2839,7 +3023,12 @@ export default function CoffeeInfographic() {
   const [showMethodology, setShowMethodology] = useState(false);
   const [selectedCoffee, setSelectedCoffee] = useState(null);
   const [brewFilter, setBrewFilter] = useState(new Set());
-  const [roastFilter, setRoastFilter] = useState(new Set());
+  // Roast filter is a contiguous range { lo, hi } of ROAST_LEVELS indices, or
+  // null for "any" (4.1). Process filter matches primary OR also (4.3).
+  const [roastRange, setRoastRange] = useState(null);
+  const [processFilter, setProcessFilter] = useState(new Set());
+  // Which process chip's ⓘ explainer sheet is open (process string | null).
+  const [processInfo, setProcessInfo] = useState(null);
   // { coffeeName: string, dimIndex: number } | null
   const [activePopover, setActivePopover] = useState(null);
 
@@ -2930,20 +3119,31 @@ export default function CoffeeInfographic() {
 
   const filteredCoffees = sortedCoffees.filter(c =>
     (brewFilter.size === 0 || c.brewMethods.some(m => brewFilter.has(m))) &&
-    (roastFilter.size === 0 || roastFilter.has(c.roast))
+    roastInRange(c.roast, roastRange) &&
+    (processFilter.size === 0 || Array.from(processFilter).some(p => originHasProcess(c, p)))
   );
 
   function toggleBrew(method) {
     setBrewFilter(prev => { const n = new Set(prev); n.has(method) ? n.delete(method) : n.add(method); return n; });
   }
-  function toggleRoast(level) {
-    setRoastFilter(prev => { const n = new Set(prev); n.has(level) ? n.delete(level) : n.add(level); return n; });
+  // Tapping a roast level extends the contiguous range to include it; tapping
+  // the only-selected level clears the range.
+  function pickRoast(idx) {
+    setRoastRange(prev => {
+      if (prev == null) return { lo: idx, hi: idx };
+      if (prev.lo === idx && prev.hi === idx) return null;
+      return { lo: Math.min(prev.lo, idx), hi: Math.max(prev.hi, idx) };
+    });
+  }
+  function toggleProcess(process) {
+    setProcessFilter(prev => { const n = new Set(prev); n.has(process) ? n.delete(process) : n.add(process); return n; });
   }
   function clearAllFilters() {
     setBrewFilter(new Set());
-    setRoastFilter(new Set());
+    setRoastRange(null);
+    setProcessFilter(new Set());
   }
-  const anyFilterActive = brewFilter.size > 0 || roastFilter.size > 0;
+  const anyFilterActive = brewFilter.size > 0 || roastRange != null || processFilter.size > 0;
 
   // name → series index (0-based) for quick per-card lookup.
   const selectIndexByName = new Map(selected.map((c, i) => [c.name, i]));
@@ -3310,12 +3510,6 @@ export default function CoffeeInfographic() {
                 filter: brewFilter,
                 toggle: toggleBrew,
               },
-              {
-                label: "Roast Level",
-                items: ["Light","Light–Medium","Medium","Medium–Dark","Dark"],
-                filter: roastFilter,
-                toggle: toggleRoast,
-              },
             ].map(({ label, items, filter, toggle }) => (
               <div key={label} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
                 <span style={{
@@ -3347,6 +3541,81 @@ export default function CoffeeInfographic() {
                 })}
               </div>
             ))}
+
+            {/* Roast spectrum (4.1) — drag-across range, replaces the five
+                exact chips. A single pick still surfaces adjacent roasts. */}
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", gap: 6 }}>
+              <span style={{
+                fontSize: 9, color: COLORS.sub, letterSpacing: "0.14em",
+                textTransform: "uppercase", fontFamily: "Georgia, serif",
+                flexShrink: 0, minWidth: 76, paddingTop: 6,
+              }}>
+                Roast Level
+              </span>
+              <RoastSpectrumFilter
+                range={roastRange}
+                onPick={pickRoast}
+                onClear={() => setRoastRange(null)}
+              />
+            </div>
+
+            {/* Process filter (4.3) — matches primary OR also; each chip's ⓘ
+                opens the explainer in the shared BottomSheet. */}
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+              <span style={{
+                fontSize: 9, color: COLORS.sub, letterSpacing: "0.14em",
+                textTransform: "uppercase", fontFamily: "Georgia, serif",
+                flexShrink: 0, minWidth: 76,
+              }}>
+                Process
+              </span>
+              {ALL_PROCESSES.map(process => {
+                const active = processFilter.has(process);
+                const pc = PROCESS_COLORS[process] ?? { border: COLORS.gridOuter };
+                return (
+                  <span
+                    key={process}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                      borderRadius: 14,
+                      border: `1px solid ${active ? pc.border : COLORS.cardBorder}`,
+                      background: active ? `${pc.border}22` : "transparent",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    <button
+                      onClick={() => toggleProcess(process)}
+                      className="tap-chip"
+                      style={{
+                        fontSize: TYPE.micro, fontFamily: "Georgia, serif", letterSpacing: "0.06em",
+                        padding: "6px 4px 6px 11px", border: "none", borderRadius: 14,
+                        background: "transparent",
+                        color: active ? "#F0DEB8" : COLORS.sub,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {process}
+                    </button>
+                    {PROCESS_EXPLAINERS[process] && (
+                      <button
+                        onClick={() => setProcessInfo(process)}
+                        aria-label={`What is ${process} processing?`}
+                        className="tap-chip"
+                        style={{
+                          fontSize: TYPE.micro, fontFamily: "Georgia, serif",
+                          padding: "6px 9px 6px 2px", border: "none",
+                          background: "transparent",
+                          color: active ? (pc.text ?? COLORS.label) : COLORS.sub,
+                          cursor: "pointer", opacity: 0.85,
+                        }}
+                      >
+                        ⓘ
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
             {/* Result count is always visible — at rest it advertises that
                 filters exist; clear-all only appears when something is active. */}
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 2, flexWrap: "wrap" }}>
@@ -3563,6 +3832,39 @@ export default function CoffeeInfographic() {
 
       {showMethodology && (
         <MethodologyModal onClose={() => setShowMethodology(false)} />
+      )}
+
+      {/* Process explainer (4.3) — reuses the shared BottomSheet primitive. */}
+      {processInfo && (
+        <BottomSheet
+          onClose={() => setProcessInfo(null)}
+          accent={`${PROCESS_COLORS[processInfo]?.border ?? COLORS.gridOuter}99`}
+        >
+          <div style={{
+            display: "flex", justifyContent: "space-between",
+            alignItems: "center", marginBottom: 10,
+          }}>
+            <ProcessBadge process={processInfo} size="lg" />
+            <button
+              onClick={() => setProcessInfo(null)}
+              aria-label="Close"
+              style={{
+                background: "none", border: "none",
+                color: COLORS.sub, fontSize: 22, cursor: "pointer",
+                lineHeight: 1, fontFamily: "Georgia, serif",
+                width: 36, height: 36, marginRight: -8,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                touchAction: "manipulation",
+              }}
+            >×</button>
+          </div>
+          <p style={{
+            margin: 0, fontSize: TYPE.small, color: COLORS.label,
+            fontStyle: "italic", lineHeight: 1.7, letterSpacing: "0.02em",
+          }}>
+            {PROCESS_EXPLAINERS[processInfo]}
+          </p>
+        </BottomSheet>
       )}
 
       {selectedCoffee && (

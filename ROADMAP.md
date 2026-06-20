@@ -273,14 +273,20 @@ it in a fresh tab and see the same comparison.
 
 ---
 
-## Sprint 4 — Honest data, educational filters
+## Sprint 4 — Honest data, educational filters ✅ COMPLETE
+
+**Status:** ✅ Done (branch `sprint-4-data`); build & lint clean, zero stale `.process`
+reads. Schema migrated for all 32 origins: added `species`, `processes:{primary,also}`,
+optional `scoredAt`. Roast filter is now an adjacency/range spectrum; a Process filter
+row with ⓘ explainers (in the shared BottomSheet) was added; species badges ship on
+cards/modal/compare panels. Scores & highlights untouched (no re-scoring).
 
 **Goal:** make the filtering model match how coffee people actually think, and
 surface the educational content we already wrote at the moment of decision. This
 sprint touches `coffeeData.js`'s shape, so it's deliberately *after* Compare Mode —
 schema churn mid-flagship would be self-inflicted pain.
 
-### 4.1 Roast as a range
+### ✅ 4.1 Roast as a range
 Replace exact-match roast filtering with a range model (`roastRange: [min, max]`
 over the 5-step scale) or adjacency matching, and replace the five tiny chips with
 a **drag-across roast spectrum** built from the existing gradient `RoastBar`
@@ -289,7 +295,7 @@ component.
 Costa Rican — exactly what a light-roast drinker wants and currently loses). The
 filter control itself becomes a piece of the visual identity instead of a chip row.
 
-### 4.2 Multi-process origins
+### ✅ 4.2 Multi-process origins
 Move to `processes: { primary, also: [] }`. Ethiopia is already correctly split into
 Washed Yirgacheffe and Natural Harrar entries, but Colombia, Costa Rica, and Brazil
 all ship significant washed *and* natural/honey volume; the single-process field
@@ -297,7 +303,7 @@ understates reality, and the methodology modal itself admits scores shift by pro
 **Outcome:** the Process filter becomes honest, cards stay clean (primary badge),
 and the detail modal can note "also commonly: Natural, Honey."
 
-### 4.3 Process filter — with teaching built in
+### ✅ 4.3 Process filter — with teaching built in
 Add a Process filter row to the cards view (today there is none, despite process
 being the most flavor-deterministic variable we track — Wet-Hulled vs. Washed
 predicts the cup better than country does). Each process chip gets a small ⓘ
@@ -306,14 +312,14 @@ affordance opening `PROCESS_EXPLAINERS` in the bottom sheet.
 teaching copy currently hidden in the detail modal reach users at the moment they're
 deciding. A user who learns *why* Monsooned tastes earthy trusts the scores.
 
-### 4.4 Species badges
+### ✅ 4.4 Species badges
 Add a `species` field: Vietnamese is Robusta, Filipino Barako is Liberica —
 different *species*, currently buried in `cultivars`. Render a small
 `ARABICA / ROBUSTA / LIBERICA` badge beside the process badge.
 **Outcome:** one field, one tiny component, and the kind of detail that signals
 expertise to coffee-literate visitors (and genuinely educates everyone else).
 
-### 4.5 Baseline consistency note (data hygiene)
+### ✅ 4.5 Baseline consistency note (data hygiene)
 The methodology states all scores reference a light-to-medium roast, but the
 Vietnamese and Sumatran profiles are explicitly written as dark-roast cups.
 Reconcile: either re-baseline those scores or add a per-origin "scored at" roast

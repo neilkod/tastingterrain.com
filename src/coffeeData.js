@@ -3,8 +3,17 @@
 // {
 //   name: string           — display name of the origin
 //   region: string         — geographic region (e.g. "East Africa")
-//   roast: string          — reference roast level (e.g. "Light–Medium")
-//   process: string        — processing method (e.g. "Washed", "Natural")
+//   species: string        — botanical species: "Arabica" | "Robusta" | "Liberica"
+//   roast: string          — reference roast level display string (e.g. "Light–Medium").
+//                            Kept for RoastBar / panels. The filter derives a
+//                            numeric roastIndex (0–4 on ROAST_LEVELS) at module load.
+//   processes: {           — processing methods grown at this origin:
+//     primary: string      — the dominant method, shown as the badge
+//     also: string[]       — other methods this origin ships in real volume ([] if none)
+//   }
+//   scoredAt?: string      — OPTIONAL. The roast level the scores reference, present
+//                            only when it differs from the light-to-medium baseline
+//                            (e.g. "Dark" for Vietnamese). Absent = baseline.
 //   note: string           — short tasting note shown on the card (3 terms)
 //   scores: number[6]      — flavor scores 1–10, in DIMS order:
 //                            [Fruity, Floral, Sweet, Nutty, Spicy, Earthy]
@@ -24,10 +33,11 @@ export const coffees = [
   {
     name: "Ethiopian",
     region: "East Africa",
+    species: "Arabica",
     scores: [8, 10, 8, 2, 2, 1],
     note: "Jasmine · Bergamot · Blueberry",
     roast: "Light",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Pour Over", "Chemex", "AeroPress", "Cold Brew"],
     cultivars: ["Heirloom", "Kurume", "Wolisho", "74110"],
     highlights: [
@@ -51,10 +61,11 @@ export const coffees = [
   {
     name: "Colombian",
     region: "South America",
+    species: "Arabica",
     scores: [8, 5, 8, 3, 2, 2],
     note: "Red Cherry · Tropical Fruit · Caramel",
     roast: "Light–Medium",
-    process: "Washed",
+    processes: { primary: "Washed", also: ["Natural"] },
     brewMethods: ["Pour Over", "Espresso", "AeroPress", "Drip"],
     cultivars: ["Castillo", "Caturra", "Colombia", "Bourbon", "Tabi"],
     highlights: [
@@ -78,10 +89,11 @@ export const coffees = [
   {
     name: "Kenyan",
     region: "East Africa",
+    species: "Arabica",
     scores: [9, 5, 7, 2, 3, 1],
     note: "Blackcurrant · Blood Orange · Brown Sugar",
     roast: "Light–Medium",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Pour Over", "Chemex", "AeroPress", "Cold Brew"],
     cultivars: ["SL28", "SL34", "Ruiru 11", "Batian"],
     highlights: [
@@ -105,10 +117,12 @@ export const coffees = [
   {
     name: "Sumatran",
     region: "Indonesia",
+    species: "Arabica",
     scores: [2, 1, 5, 4, 5, 10],
     note: "Cedar · Bittersweet Cocoa · Tobacco",
     roast: "Medium–Dark",
-    process: "Wet-Hulled",
+    processes: { primary: "Wet-Hulled", also: [] },
+    scoredAt: "Medium–Dark",
     brewMethods: ["French Press", "Drip", "Espresso", "Cold Brew"],
     cultivars: ["Typica", "Ateng", "Bourbon"],
     highlights: [
@@ -132,10 +146,12 @@ export const coffees = [
   {
     name: "Brazilian",
     region: "South America",
+    species: "Arabica",
     scores: [5, 3, 8, 9, 2, 3],
     note: "Dark Chocolate · Hazelnut · Dried Apricot",
     roast: "Medium–Dark",
-    process: "Natural",
+    processes: { primary: "Natural", also: ["Pulped Natural", "Washed"] },
+    scoredAt: "Medium–Dark",
     brewMethods: ["Espresso", "French Press", "Moka Pot", "Cold Brew"],
     cultivars: ["Bourbon Amarelo", "Yellow Catuaí", "Mundo Novo", "Typica"],
     highlights: [
@@ -159,10 +175,11 @@ export const coffees = [
   {
     name: "Guatemalan",
     region: "Central America",
+    species: "Arabica",
     scores: [5, 4, 8, 6, 3, 2],
     note: "Milk Chocolate · Caramel · Meyer Lemon",
     roast: "Light–Medium",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Pour Over", "French Press", "Espresso", "Drip"],
     cultivars: ["Bourbon", "Caturra", "Catuaí", "Typica", "Pache"],
     highlights: [
@@ -189,10 +206,11 @@ export const coffees = [
   {
     name: "Costa Rican",
     region: "Central America",
+    species: "Arabica",
     scores: [7, 4, 9, 4, 2, 1],
     note: "Wild Honey · Apricot · Caramel",
     roast: "Light–Medium",
-    process: "Honey",
+    processes: { primary: "Honey", also: ["Washed"] },
     brewMethods: ["Pour Over", "AeroPress", "Chemex", "Espresso"],
     cultivars: ["Caturra", "Villa Sarchi", "Catuaí", "Typica"],
     highlights: [
@@ -213,10 +231,11 @@ export const coffees = [
   {
     name: "Yemeni",
     region: "Middle East",
+    species: "Arabica",
     scores: [7, 5, 7, 3, 9, 5],
     note: "Cardamom · Dried Apricot · Dark Chocolate",
     roast: "Medium",
-    process: "Natural",
+    processes: { primary: "Natural", also: [] },
     brewMethods: ["Ibrik / Turkish", "French Press", "Chemex", "Espresso"],
     cultivars: ["Udaini", "Dawairi", "Jaadi", "Tufahi"],
     highlights: [
@@ -246,10 +265,11 @@ export const coffees = [
   {
     name: "Jamaican Blue Mountain",
     region: "Caribbean",
+    species: "Arabica",
     scores: [4, 5, 8, 5, 3, 2],
     note: "Chocolate · Orange Peel · Sweet Herbs",
     roast: "Medium",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Chemex", "Pour Over", "Drip", "French Press"],
     cultivars: ["Blue Mountain Typica"],
     highlights: [
@@ -273,10 +293,11 @@ export const coffees = [
   {
     name: "Hawaiian Kona",
     region: "Pacific",
+    species: "Arabica",
     scores: [5, 5, 8, 7, 2, 1],
     note: "Macadamia · Caramel Toffee · Peach",
     roast: "Light–Medium",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Pour Over", "Drip", "French Press", "Cold Brew"],
     cultivars: ["Kona Typica"],
     highlights: [
@@ -303,10 +324,12 @@ export const coffees = [
   {
     name: "Vietnamese",
     region: "Southeast Asia",
+    species: "Robusta",
     scores: [1, 1, 6, 7, 3, 8],
     note: "Dark Chocolate · Roasted Walnut · Dark Caramel",
     roast: "Dark",
-    process: "Natural",
+    processes: { primary: "Natural", also: [] },
+    scoredAt: "Dark",
     brewMethods: ["Phin Filter", "Espresso", "Moka Pot", "Cold Brew"],
     cultivars: ["Robusta", "Catimor"],
     highlights: [
@@ -330,10 +353,11 @@ export const coffees = [
   {
     name: "Peruvian",
     region: "South America",
+    species: "Arabica",
     scores: [6, 4, 7, 5, 2, 2],
     note: "Orange Zest · Milk Chocolate · Brown Sugar",
     roast: "Light–Medium",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Pour Over", "Chemex", "Drip", "AeroPress"],
     cultivars: ["Typica", "Caturra", "Bourbon", "Catimor"],
     highlights: [
@@ -357,10 +381,11 @@ export const coffees = [
   {
     name: "Mexican",
     region: "North America",
+    species: "Arabica",
     scores: [5, 4, 7, 6, 2, 2],
     note: "Milk Chocolate · Almond · Orange Zest",
     roast: "Light–Medium",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Pour Over", "Drip", "French Press", "Cold Brew"],
     cultivars: ["Typica", "Bourbon", "Caturra", "Mundo Novo"],
     highlights: [
@@ -387,10 +412,11 @@ export const coffees = [
   {
     name: "Rwandan",
     region: "East Africa",
+    species: "Arabica",
     scores: [8, 7, 8, 2, 5, 1],
     note: "Red Cherry · Clove · Caramelized Sugar",
     roast: "Light–Medium",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Pour Over", "AeroPress", "Chemex", "Cold Brew"],
     cultivars: ["Bourbon", "Mayaguez 71", "Jackson"],
     highlights: [
@@ -417,10 +443,12 @@ export const coffees = [
   {
     name: "Indian Monsoon",
     region: "South Asia",
+    species: "Arabica",
     scores: [1, 1, 5, 6, 9, 9],
     note: "Sandalwood · Cardamom · Dark Chocolate",
     roast: "Medium–Dark",
-    process: "Monsooned",
+    processes: { primary: "Monsooned", also: [] },
+    scoredAt: "Medium–Dark",
     brewMethods: ["Espresso", "French Press", "Moka Pot", "Cold Brew"],
     cultivars: ["Kent", "S795", "Chandragiri", "Cauvery"],
     highlights: [
@@ -447,10 +475,11 @@ export const coffees = [
   {
     name: "Panama Geisha",
     region: "Central America",
+    species: "Arabica",
     scores: [8, 10, 8, 1, 1, 1],
     note: "Jasmine · Bergamot · Peach Nectar",
     roast: "Light",
-    process: "Washed",
+    processes: { primary: "Washed", also: ["Natural"] },
     brewMethods: ["Pour Over", "Chemex", "AeroPress"],
     cultivars: ["Geisha"],
     highlights: [
@@ -474,10 +503,11 @@ export const coffees = [
   {
     name: "Burundian",
     region: "East Africa",
+    species: "Arabica",
     scores: [8, 8, 8, 2, 3, 1],
     note: "Honeysuckle · Mulberry · Apricot",
     roast: "Light–Medium",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Pour Over", "Chemex", "AeroPress", "Cold Brew"],
     cultivars: ["Bourbon", "Jackson"],
     highlights: [
@@ -501,10 +531,11 @@ export const coffees = [
   {
     name: "Tanzanian",
     region: "East Africa",
+    species: "Arabica",
     scores: [8, 4, 6, 2, 4, 2],
     note: "Blackcurrant · Dark Plum · Bergamot",
     roast: "Light–Medium",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Pour Over", "Chemex", "French Press", "AeroPress"],
     cultivars: ["Bourbon", "Kent", "N39", "Arusha"],
     highlights: [
@@ -528,10 +559,11 @@ export const coffees = [
   {
     name: "Honduran",
     region: "Central America",
+    species: "Arabica",
     scores: [5, 3, 8, 6, 2, 2],
     note: "Dark Chocolate · Caramel · Orange Zest",
     roast: "Medium",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Pour Over", "Espresso", "French Press", "Drip"],
     cultivars: ["Catuaí", "Lempira", "IHCAFE 90", "Typica", "Bourbon"],
     highlights: [
@@ -555,10 +587,11 @@ export const coffees = [
   {
     name: "Papua New Guinea",
     region: "Pacific",
+    species: "Arabica",
     scores: [5, 2, 6, 6, 3, 7],
     note: "Dark Chocolate · Almond · Cedar",
     roast: "Medium",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["French Press", "Drip", "Espresso", "Cold Brew"],
     cultivars: ["Typica", "Blue Mountain", "Arusha", "Mundo Novo"],
     highlights: [
@@ -585,10 +618,11 @@ export const coffees = [
   {
     name: "Ethiopian Harrar",
     region: "East Africa",
+    species: "Arabica",
     scores: [9, 4, 7, 2, 3, 3],
     note: "Blueberry Jam · Dark Winey Fruit · Tamarind",
     roast: "Light–Medium",
-    process: "Natural",
+    processes: { primary: "Natural", also: [] },
     brewMethods: ["Pour Over", "French Press", "AeroPress", "Cold Brew"],
     cultivars: ["Heirloom", "Longberry", "Shortberry"],
     highlights: [
@@ -612,10 +646,12 @@ export const coffees = [
   {
     name: "Sulawesi Toraja",
     region: "Indonesia",
+    species: "Arabica",
     scores: [5, 2, 6, 5, 5, 8],
     note: "Dark Chocolate · Black Cherry · Pipe Tobacco",
     roast: "Medium–Dark",
-    process: "Wet-Hulled",
+    processes: { primary: "Wet-Hulled", also: [] },
+    scoredAt: "Medium–Dark",
     brewMethods: ["French Press", "Drip", "Espresso", "Moka Pot"],
     cultivars: ["S795", "Typica", "Catimor"],
     highlights: [
@@ -645,10 +681,11 @@ export const coffees = [
   {
     name: "Bolivian",
     region: "South America",
+    species: "Arabica",
     scores: [7, 6, 8, 4, 2, 1],
     note: "Crisp Apple · Orange Blossom · Honey Caramel",
     roast: "Light",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Pour Over", "Chemex", "AeroPress", "Cold Brew"],
     cultivars: ["Typica", "Caturra", "Catuaí"],
     highlights: [
@@ -675,10 +712,11 @@ export const coffees = [
   {
     name: "Salvadoran Pacamara",
     region: "Central America",
+    species: "Arabica",
     scores: [7, 6, 8, 4, 2, 1],
     note: "Red Cherry · Floral Nougat · Brown Sugar",
     roast: "Light–Medium",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Pour Over", "AeroPress", "Chemex", "Espresso"],
     cultivars: ["Pacamara"],
     highlights: [
@@ -705,10 +743,11 @@ export const coffees = [
   {
     name: "Congolese Kivu",
     region: "Central Africa",
+    species: "Arabica",
     scores: [7, 4, 6, 3, 2, 4],
     note: "Dark Cherry · Sweet Orange · Milk Chocolate",
     roast: "Medium",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Pour Over", "French Press", "Drip", "AeroPress"],
     cultivars: ["Bourbon", "Jackson", "Typica"],
     highlights: [
@@ -732,10 +771,11 @@ export const coffees = [
   {
     name: "St. Helena",
     region: "South Atlantic Island",
+    species: "Arabica",
     scores: [6, 6, 7, 4, 2, 2],
     note: "Citrus Zest · Caramel · Chamomile",
     roast: "Light–Medium",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Pour Over", "Chemex", "AeroPress", "French Press"],
     cultivars: ["Green Tipped Bourbon"],
     highlights: [
@@ -762,10 +802,11 @@ export const coffees = [
   {
     name: "Ugandan",
     region: "East Africa",
+    species: "Arabica",
     scores: [7, 4, 6, 4, 3, 5],
     note: "Dark Chocolate · Black Plum · Cedar",
     roast: "Medium",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Pour Over", "French Press", "Espresso", "Drip"],
     cultivars: ["SL14", "SL28", "Bourbon", "Robusta"],
     highlights: [
@@ -792,10 +833,11 @@ export const coffees = [
   {
     name: "Nicaraguan",
     region: "Central America",
+    species: "Arabica",
     scores: [5, 4, 8, 6, 2, 2],
     note: "Milk Chocolate · Brown Sugar · Mild Cherry",
     roast: "Light–Medium",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Pour Over", "Espresso", "French Press", "Drip"],
     cultivars: ["Caturra", "Bourbon", "Maracaturra", "Catuaí"],
     highlights: [
@@ -822,10 +864,11 @@ export const coffees = [
   {
     name: "Ecuadorian",
     region: "South America",
+    species: "Arabica",
     scores: [7, 5, 8, 3, 2, 1],
     note: "Tropical Fruit · Honey · Orange Blossom",
     roast: "Light",
-    process: "Washed",
+    processes: { primary: "Washed", also: [] },
     brewMethods: ["Pour Over", "Chemex", "AeroPress", "Cold Brew"],
     cultivars: ["Typica", "Caturra", "Bourbon"],
     highlights: [
@@ -849,10 +892,11 @@ export const coffees = [
   {
     name: "Flores",
     region: "Indonesia",
+    species: "Arabica",
     scores: [4, 3, 7, 4, 3, 6],
     note: "Milk Chocolate · Dark Berry · Cedar",
     roast: "Medium",
-    process: "Wet-Hulled",
+    processes: { primary: "Wet-Hulled", also: [] },
     brewMethods: ["French Press", "Drip", "Espresso", "Pour Over"],
     cultivars: ["Typica", "Catimor"],
     highlights: [
@@ -882,10 +926,11 @@ export const coffees = [
   {
     name: "Myanmar",
     region: "Southeast Asia",
+    species: "Arabica",
     scores: [7, 6, 7, 3, 2, 2],
     note: "Peach · Jasmine · Honey",
     roast: "Light–Medium",
-    process: "Natural",
+    processes: { primary: "Natural", also: ["Washed"] },
     brewMethods: ["Pour Over", "AeroPress", "Chemex", "Cold Brew"],
     cultivars: ["Typica", "Bourbon", "Catuaí", "Catimor"],
     highlights: [
@@ -909,10 +954,12 @@ export const coffees = [
   {
     name: "Filipino Barako",
     region: "Southeast Asia",
+    species: "Liberica",
     scores: [5, 6, 4, 5, 7, 8],
     note: "Jackfruit · Smoky Dark Chocolate · Dark Floral",
     roast: "Medium–Dark",
-    process: "Natural",
+    processes: { primary: "Natural", also: [] },
+    scoredAt: "Medium–Dark",
     brewMethods: ["French Press", "Moka Pot", "Espresso", "Phin Filter"],
     cultivars: ["Liberica"],
     highlights: [
