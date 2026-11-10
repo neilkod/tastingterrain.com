@@ -1,0 +1,91 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Tasting Terrain — design tokens
+   A field atlas of flavor: parchment, ink, botanical green, terracotta.
+   Data-driven hues (dimensions, process, region, compare series) live in
+   src/lib/constants.js and reach CSS through the `--c` custom property.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Color: paper & ink ─────────────────────────────────────────────────── */
+  --paper:         #EFE8D8;   /* page ground — warm parchment               */
+  --paper-raised:  #F7F2E7;   /* sheets, slips, the dossier                  */
+  --paper-deep:    #E6DCC7;   /* recessed bands, table stripes               */
+  --ink:           #1C1A15;   /* 14.2:1 on paper — headlines, body           */
+  --ink-soft:      #4A4337;   /*  8.0:1 — secondary text                     */
+  --ink-mute:      #6A604E;   /*  5.1:1 — metadata (never on paper-deep)     */
+
+  /* ── Color: brand accents ───────────────────────────────────────────────── */
+  --forest:        #1E3A2F;   /* botanical green — masthead & colophon bands */
+  --forest-2:      #2A4A3C;
+  --on-forest:     #EFE8D8;   /* 10.1:1 on forest                            */
+  --on-forest-soft:#B7C2AE;   /*  6.7:1 on forest                            */
+  --rust:          #A8401F;   /* terracotta — numbering, active, editorial   */
+  --rust-fill:     #C4552C;
+  --honey:         #D9A73A;   /* highlight on dark bands (5.6:1 on forest)   */
+  --cobalt:        #2C4A8E;   /* survey blue — focus, annotations            */
+
+  /* ── Rules (borders are hairlines, never boxes) ─────────────────────────── */
+  --rule:          rgba(28, 26, 21, 0.22);
+  --rule-soft:     rgba(28, 26, 21, 0.12);
+  --rule-strong:   #1C1A15;
+  --hair:          1px;
+
+  /* ── Shadows — only two, both for things that float ─────────────────────── */
+  --shadow-slip:   0 1px 0 rgba(28,26,21,.08), 0 10px 30px -12px rgba(28,26,21,.35);
+  --shadow-sheet:  0 -18px 40px -20px rgba(28,26,21,.45);
+
+  /* ── Type families ──────────────────────────────────────────────────────── */
+  --font-display: "Gloock", "Iowan Old Style", Georgia, serif;
+  --font-text:    "Newsreader", "Iowan Old Style", Georgia, serif;
+  --font-label:   "Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --label-width:  72%;        /* Archivo wdth axis — map-label condensed      */
+
+  /* ── Fluid type scale (rem, respects user font settings) ────────────────── */
+  --step--2: 0.6875rem;                                   /* 11  labels      */
+  --step--1: 0.8125rem;                                   /* 13  meta        */
+  --step-0:  1rem;                                        /* 16  body        */
+  --step-1:  1.1875rem;                                   /* 19  lede        */
+  --step-2:  clamp(1.375rem, 1.2rem + 0.7vw, 1.75rem);    /* 22–28 names     */
+  --step-3:  clamp(1.75rem, 1.4rem + 1.4vw, 2.5rem);      /* 28–40 sections  */
+  --step-4:  clamp(2.25rem, 1.6rem + 2.6vw, 3.75rem);     /* 36–60 dossier   */
+  --step-5:  clamp(3rem, 1.8rem + 5.4vw, 7.25rem);        /* 48–116 masthead */
+
+  --leading-tight: 0.92;
+  --leading-snug:  1.2;
+  --leading-body:  1.55;
+  --track-label:   0.14em;
+
+  /* ── Spacing (4-based) ──────────────────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 72px;
+  --space-9: 112px;
+
+  /* ── Layout ─────────────────────────────────────────────────────────────── */
+  --page-max: 1320px;
+  --margin:   clamp(16px, 4vw, 56px);       /* outer page gutter             */
+  --gutter:   clamp(16px, 2vw, 28px);       /* column gutter                 */
+  --measure:  38rem;                        /* comfortable reading line      */
+  --cols:     12;
+
+  /* ── Interaction ────────────────────────────────────────────────────────── */
+  --focus:      0 0 0 2px var(--paper), 0 0 0 4px var(--cobalt);
+  --ease:       cubic-bezier(.2, .7, .2, 1);
+  --dur-fast:   140ms;
+  --dur:        240ms;
+  --tap:        44px;                      /* minimum touch target            */
+
+  /* ── Image / graphic treatments ─────────────────────────────────────────── */
+  --contour:        rgba(28, 26, 21, 0.28);
+  --contour-index:  rgba(28, 26, 21, 0.55);
+
+  /* ── Breakpoints (documented; CSS can't read vars in @media) ────────────────
+     sm 640px · md 900px · lg 1200px — mirrored in MQ (src/lib/constants.js)  */
+
+  color-scheme: light;
+}
