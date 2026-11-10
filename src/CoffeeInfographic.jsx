@@ -57,7 +57,6 @@ function Masthead({ onMethodology }) {
       <p className="wordmark" aria-label="Tasting Terrain">
         <span className="wordmark__a">Tasting</span> <span className="wordmark__b">Terrain</span>
       </p>
-      <p className="masthead__mid">A comparative tasting guide</p>
       <p className="masthead__end">
         <button type="button" className="masthead__link" onClick={onMethodology}>Methodology</button>
       </p>
