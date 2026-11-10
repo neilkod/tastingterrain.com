@@ -99,5 +99,3 @@ export const MQ = {
   mobile: "(max-width: 639px)",
   tablet: "(max-width: 899px)",
 };
-
-export const ROMAN = ["I", "II", "III", "IV", "V", "VI"];

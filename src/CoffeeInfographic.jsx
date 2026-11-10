@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { coffees } from "./coffeeData";
-import { DIMS, DIM_COLORS, DIM_DESCS, MQ, PROCESS_COLORS, PROCESS_EXPLAINERS, ROMAN } from "./lib/constants";
+import { DIMS, DIM_COLORS, DIM_DESCS, MQ, PROCESS_COLORS, PROCESS_EXPLAINERS } from "./lib/constants";
 import {
   originHasProcess, pad2, readCompareFromURL, roastInRange, writeCompareToURL,
 } from "./lib/data";
@@ -28,25 +28,25 @@ const VIEWS = [
 
 const SECTION_COPY = {
   cards: {
-    index: 0, title: "Origins",
+    title: "Origins",
   },
   compare: {
-    index: 1, title: "Compare",
+    title: "Compare",
   },
   compareScreen: {
-    index: 1, title: "Comparison",
+    title: "Comparison",
   },
   heatmap: {
-    index: 2, title: "Heatmap",
+    title: "Heatmap",
   },
   map: {
-    index: 3, title: "Flavor Map",
+    title: "Flavor Map",
   },
   discover: {
-    index: 4, title: "Discover",
+    title: "Discover",
   },
   tags: {
-    index: 5, title: "Tags",
+    title: "Tags",
   },
 };
 
@@ -279,7 +279,7 @@ export default function CoffeeInfographic() {
         <div ref={sectionRef} aria-hidden="true" />
         <nav className="sections" aria-label="Sections">
           <ul className="sections__list">
-            {VIEWS.map(({ key, label }, idx) => (
+            {VIEWS.map(({ key, label }) => (
               <li key={key}>
                 <button
                   type="button"
@@ -287,7 +287,6 @@ export default function CoffeeInfographic() {
                   aria-current={view === key ? "page" : undefined}
                   onClick={() => goTo(key)}
                 >
-                  <span className="sections__num">{ROMAN[idx]}</span>
                   {label}
                 </button>
               </li>
@@ -297,7 +296,6 @@ export default function CoffeeInfographic() {
 
         <main id="main" className={`main main--${view}`}>
           <SectionHead
-            index={copy.index}
             title={copy.title}
           />
 
