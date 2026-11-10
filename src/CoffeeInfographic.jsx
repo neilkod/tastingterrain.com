@@ -29,31 +29,24 @@ const VIEWS = [
 const SECTION_COPY = {
   cards: {
     index: 0, title: "Origins",
-    dek: "Thirty-two specimens, catalogued A to Z — or ranked by whichever dimension you choose above. Select a point on any profile to read its tasting note.",
   },
   compare: {
     index: 1, title: "Compare",
-    dek: "Two origins, one chart. To set three side by side, use Compare on the Origins plate.",
   },
   compareScreen: {
     index: 1, title: "Comparison",
-    dek: "Your selection, overlaid. The address bar now carries it — share the link and the comparison travels with it.",
   },
   heatmap: {
     index: 2, title: "Heatmap",
-    dek: "The full ledger: every origin, every dimension. Select a heading to rank the column; select a score to read the note behind it.",
   },
   map: {
     index: 3, title: "Flavor Map",
-    dek: "Six dimensions folded onto two. Origins that land as neighbours taste alike; outliers are genuinely unlike anything else.",
   },
   discover: {
     index: 4, title: "Discover",
-    dek: "Name the flavors you love. We'll rank the origins whose tasting notes carry them.",
   },
   tags: {
     index: 5, title: "Tags",
-    dek: "An index of every flavor note in the guide, and a glossary of how coffee is processed after harvest.",
   },
 };
 
@@ -66,7 +59,6 @@ function Masthead({ onMethodology }) {
       </p>
       <p className="masthead__mid">A comparative tasting guide</p>
       <p className="masthead__end">
-        <span className="masthead__stat">{coffees.length} origins · {DIMS.length} dimensions</span>
         <button type="button" className="masthead__link" onClick={onMethodology}>Methodology</button>
       </p>
     </div>
@@ -79,16 +71,13 @@ function Hero({ onMethodology, onSelect }) {
   return (
     <section className="hero" aria-labelledby="hero-title">
       <div className="hero__text">
-        <p className="hero__kicker">Single-origin coffee, surveyed</p>
         <h1 id="hero-title" className="hero__title">
           Coffees <em>of the</em> World
         </h1>
         <p className="hero__dek">
-          Thirty-two single-origin coffees, scored across six dimensions of flavor and mapped like terrain.
-          Where summits crowd together, the cups taste alike.
+          Flavor profiles across six dimensions · Light-to-medium roast reference
         </p>
         <p className="hero__meta">
-          <span>Light-to-medium roast reference</span>
           <button type="button" className="textlink" onClick={onMethodology}>How scores are assigned</button>
         </p>
       </div>
@@ -97,10 +86,7 @@ function Hero({ onMethodology, onSelect }) {
           ? <HeroTerrain width={640} height={460} pad={{ x: 40, y: 40 }} labelled={false} />
           : <HeroTerrain width={1000} height={640} pad={{ x: 90, y: 70 }} onSelect={onSelect} />}
         <figcaption className="caption">
-          <span className="caption__fig">Fig. 1</span>
-          The flavor terrain. Each summit is an origin, placed by the similarity of its six scores; its spot height
-          is the total of those scores.{" "}
-          {isTablet ? "The labelled survey is in IV. Flavor Map." : "Select a summit to open its dossier."}
+          Closer peaks taste alike. Number = total score.
         </figcaption>
       </figure>
     </section>
@@ -114,9 +100,7 @@ function DimensionBand({ sortDim, sortDir, onDimClick }) {
       <div className="dims__intro">
         <h2 id="dims-title" className="dims__title">The six dimensions</h2>
         <p className="dims__how">
-          {sortDim == null
-            ? "Select one to rank every origin by it. Select again to reverse, a third time to return to A–Z."
-            : `Ranked by ${DIMS[sortDim]}, ${sortDir === "desc" ? "highest first" : "lowest first"}.`}
+          Click to sort
         </p>
       </div>
       <ol className="dims__list">
@@ -166,16 +150,11 @@ function Colophon({ onMethodology }) {
           </div>
           <div>
             <p className="kicker">Made by</p>
-            <p>Made with coffee and curiosity by @neilkod.</p>
+            <p>Made with ☕ by @neilkod</p>
             <p className="colophon__links">
               <a href="mailto:nkodner@gmail.com">nkodner@gmail.com</a>
               <a href="https://github.com/neilkod/tastingterrain.com" target="_blank" rel="noreferrer">GitHub</a>
             </p>
-          </div>
-          <div>
-            <p className="kicker">Colophon</p>
-            <p>Set in Gloock, Newsreader and Archivo. Every chart is drawn by hand in SVG; the contours are computed
-              from the data.</p>
           </div>
         </div>
       </div>
@@ -320,13 +299,6 @@ export default function CoffeeInfographic() {
           <SectionHead
             index={copy.index}
             title={copy.title}
-            dek={copy.dek}
-            aside={view === "cards" ? (
-              <span className="section-head__count">
-                <span className="section-head__big">{filteredCoffees.length}</span>
-                <span>of {coffees.length}<br />origins</span>
-              </span>
-            ) : null}
           />
 
           {view === "cards" && (

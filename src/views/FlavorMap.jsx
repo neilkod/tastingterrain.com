@@ -75,8 +75,7 @@ export function FlavorMapView({ onSelectCoffee }) {
           <p>
             Think of it as a <em>flavor map</em>: coffees that land close together have similar overall profiles,
             while coffees far apart taste quite different. The exact position on any axis isn't the point — the{" "}
-            <em>distances between coffees</em> are what matter. The contour lines trace the same thing as terrain:
-            where several origins share a profile, their summits merge into a ridge.
+            <em>distances between coffees</em> are what matter.
           </p>
           <p>
             Use the <em>Color by</em> toggle to switch between coloring points by growing region or by processing
@@ -123,10 +122,6 @@ export function FlavorMapView({ onSelectCoffee }) {
             );
           })}
         </svg>
-        <figcaption className="caption">
-          <span className="caption__fig">Fig. 4</span> Principal components of the six scores. Hover a point for its
-          profile; select it to open the dossier.
-        </figcaption>
       </figure>
 
       {tooltip && <MapTooltip coffee={tooltip.coffee} x={tooltip.x} y={tooltip.y} color={colorOf(tooltip.coffee)} />}

@@ -59,7 +59,7 @@ export function DiscoverView({ onSelectCoffee }) {
           <p className="kicker">Your profile</p>
           {selected.size === 0 ? (
             <p className="profile-card__empty">
-              Select one or more flavor tags you enjoy — we'll rank the origins that carry them.
+              Select flavor tags to find matching origins.
             </p>
           ) : (
             <>
