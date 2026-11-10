@@ -75,7 +75,7 @@ function Hero({ onMethodology, onSelect }) {
           Coffees <em>of the</em> World
         </h1>
         <p className="hero__dek">
-          Flavor profiles across six dimensions · Light-to-medium roast reference
+          Light-to-medium roast reference
         </p>
         <p className="hero__meta">
           <button type="button" className="textlink" onClick={onMethodology}>How scores are assigned</button>
@@ -98,7 +98,7 @@ function DimensionBand({ sortDim, sortDir, onDimClick }) {
   return (
     <section className="dims" aria-labelledby="dims-title">
       <div className="dims__intro">
-        <h2 id="dims-title" className="dims__title">The six dimensions</h2>
+        <h2 id="dims-title" className="dims__title">Six flavor families</h2>
         <p className="dims__how">
           Click to sort
         </p>
