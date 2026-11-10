@@ -538,12 +538,10 @@ abbr[title] { text-decoration: none; }
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 7fr) minmax(0, 4fr);
   gap: var(--gutter);
-  align-items: end;
+  align-items: baseline;
   margin-bottom: var(--space-6);
 }
 .section-head__num {
-  align-self: start;
-  padding-top: 0.08em;
   font-family: var(--font-text);
   font-style: italic;
   font-weight: 300;
@@ -590,7 +588,6 @@ abbr[title] { text-decoration: none; }
 @media (max-width: 899px) {
   .main { padding-top: var(--space-6); }
   .section-head { grid-template-columns: auto minmax(0, 1fr); row-gap: var(--space-3); }
-  .section-head__num { align-self: start; padding-top: 0.12em; }
   .section-head__aside { display: none; }
 }
 

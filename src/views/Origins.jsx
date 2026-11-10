@@ -179,7 +179,7 @@ export function FilterBar({
       </div>
 
       {compareMode && (
-        <p className="filterbar__hint">Tap up to three origins to set them side by side.</p>
+        <p className="filterbar__hint">Select up to 3 origins.</p>
       )}
 
       <div id="refine-panel" className="filterbar__panel" hidden={!open}>

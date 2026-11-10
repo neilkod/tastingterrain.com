@@ -170,7 +170,7 @@ export function CompareScreen({ coffees, onRemove, onClearAll }) {
             </li>
           ))}
         </ul>
-        <p className="caption">Select a point on the chart to read that flavor across every origin.</p>
+        <p className="caption">Tap a point to compare notes</p>
       </div>
 
       <div className="compare-screen__body">
@@ -229,7 +229,7 @@ export function CompareView() {
               <li key={idx}><SeriesKey index={idx} color={colors[idx]} /><span className="legend__name">{c.name}</span></li>
             ))}
           </ul>
-          <figcaption className="caption">Select a point on the chart to compare the curated notes.</figcaption>
+          <figcaption className="caption">Tap a point to compare notes</figcaption>
         </figure>
         <div>
           <ScoreTable coffees={pair} colors={colors} onDim={setSheetDim} />

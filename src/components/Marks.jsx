@@ -100,8 +100,8 @@ export function RoastSpectrumFilter({ range, onPick, onClear }) {
       <div className="spectrum__foot">
         <span className="spectrum__hint">
           {range == null
-            ? "Any roast — tap a level, then another to set a range"
-            : `${ROAST_LEVELS[range.lo]}${range.hi !== range.lo ? ` to ${ROAST_LEVELS[range.hi]}` : ""}, plus neighbours`}
+            ? "Any roast"
+            : `${ROAST_LEVELS[range.lo]}${range.hi !== range.lo ? ` – ${ROAST_LEVELS[range.hi]}` : ""}`}
         </span>
         {range != null && (
           <button type="button" className="textlink" onClick={onClear}>clear roast range</button>

@@ -65,10 +65,6 @@ export function Dossier({ coffee, onClose, onSelect }) {
             <div className="dossier__figure-inner">
               <RadarChart scores={coffee.scores} size={300} tint={DIM_COLORS[dom]} name={coffee.name} />
               <ScoreLedger scores={coffee.scores} size="lg" />
-              <p className="caption">
-                <span className="caption__fig">Fig.</span> Profile at {coffee.scoredAt ? coffee.scoredAt.toLowerCase() : "light-to-medium"} roast,
-                scored 1–10. Contours step down in quarters toward the center.
-              </p>
             </div>
           </aside>
 
@@ -136,7 +132,6 @@ export function Dossier({ coffee, onClose, onSelect }) {
 
             <section className="dossier__section">
               <Kicker>Similar origins</Kicker>
-              <p className="dossier__small">The three nearest profiles across all six dimensions.</p>
               <ul className="similar">
                 {similar.map((c) => (
                   <li key={c.name}>
