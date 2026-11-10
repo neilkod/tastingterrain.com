@@ -98,7 +98,7 @@ function DimensionBand({ sortDim, sortDir, onDimClick }) {
   return (
     <section className="dims" aria-labelledby="dims-title">
       <div className="dims__intro">
-        <h2 id="dims-title" className="dims__title">Six flavor families</h2>
+        <h2 id="dims-title" className="dims__title">Flavor families</h2>
         <p className="dims__how">
           Click to sort
         </p>
