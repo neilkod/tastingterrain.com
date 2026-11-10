@@ -4,7 +4,7 @@ import { ALL_PROCESSES, ORIGIN_NO, dominantDim, pad2 } from "../lib/data";
 import { placeOf } from "../lib/places";
 import { RadarChart } from "../components/Radar";
 import { Popover, TagList } from "../components/Overlays";
-import { ProcessMark, ScoreLedger, SpeciesMark, RoastSpectrumFilter } from "../components/Marks";
+import { ProcessMark, SpeciesMark, RoastSpectrumFilter } from "../components/Marks";
 import { useMediaQuery } from "../lib/hooks";
 
 // ─── Specimen — one origin on the plate ─────────────────────────────────────
@@ -100,8 +100,6 @@ export const Specimen = memo(function Specimen({
           )}
         </div>
       )}
-
-      <ScoreLedger scores={coffee.scores} activeDim={sortDim} />
 
       {activePopoverDim != null && (
         <Popover coffee={coffee} dimIndex={activePopoverDim} onClose={onClosePopover} />

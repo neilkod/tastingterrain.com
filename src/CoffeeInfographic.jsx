@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { coffees } from "./coffeeData";
-import { DIMS, DIM_COLORS, DIM_DESCS, MQ, PROCESS_COLORS, PROCESS_EXPLAINERS, ROMAN } from "./lib/constants";
+import { DIMS, DIM_COLORS, DIM_DESCS, MQ, PROCESS_COLORS, PROCESS_EXPLAINERS } from "./lib/constants";
 import {
   originHasProcess, pad2, readCompareFromURL, roastInRange, writeCompareToURL,
 } from "./lib/data";
@@ -28,25 +28,25 @@ const VIEWS = [
 
 const SECTION_COPY = {
   cards: {
-    index: 0, title: "Origins",
+    title: "Origins",
   },
   compare: {
-    index: 1, title: "Compare",
+    title: "Compare",
   },
   compareScreen: {
-    index: 1, title: "Comparison",
+    title: "Comparison",
   },
   heatmap: {
-    index: 2, title: "Heatmap",
+    title: "Heatmap",
   },
   map: {
-    index: 3, title: "Flavor Map",
+    title: "Flavor Map",
   },
   discover: {
-    index: 4, title: "Discover",
+    title: "Discover",
   },
   tags: {
-    index: 5, title: "Tags",
+    title: "Tags",
   },
 };
 
@@ -75,7 +75,7 @@ function Hero({ onMethodology, onSelect }) {
           Coffees <em>of the</em> World
         </h1>
         <p className="hero__dek">
-          Flavor profiles across six dimensions · Light-to-medium roast reference
+          Light-to-medium roast reference
         </p>
         <p className="hero__meta">
           <button type="button" className="textlink" onClick={onMethodology}>How scores are assigned</button>
@@ -98,7 +98,7 @@ function DimensionBand({ sortDim, sortDir, onDimClick }) {
   return (
     <section className="dims" aria-labelledby="dims-title">
       <div className="dims__intro">
-        <h2 id="dims-title" className="dims__title">The six dimensions</h2>
+        <h2 id="dims-title" className="dims__title">Flavor families</h2>
         <p className="dims__how">
           Click to sort
         </p>
@@ -279,7 +279,7 @@ export default function CoffeeInfographic() {
         <div ref={sectionRef} aria-hidden="true" />
         <nav className="sections" aria-label="Sections">
           <ul className="sections__list">
-            {VIEWS.map(({ key, label }, idx) => (
+            {VIEWS.map(({ key, label }) => (
               <li key={key}>
                 <button
                   type="button"
@@ -287,7 +287,6 @@ export default function CoffeeInfographic() {
                   aria-current={view === key ? "page" : undefined}
                   onClick={() => goTo(key)}
                 >
-                  <span className="sections__num">{ROMAN[idx]}</span>
                   {label}
                 </button>
               </li>
@@ -297,7 +296,6 @@ export default function CoffeeInfographic() {
 
         <main id="main" className={`main main--${view}`}>
           <SectionHead
-            index={copy.index}
             title={copy.title}
           />
 

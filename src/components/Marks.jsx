@@ -1,5 +1,5 @@
 import {
-  DIMS, DIM_ABBR, DIM_COLORS, DIM_INK, PROCESS_COLORS, ROAST_COLORS, ROAST_LEVELS, SPECIES_FLAG, ROMAN,
+  DIMS, DIM_ABBR, DIM_COLORS, DIM_INK, PROCESS_COLORS, ROAST_COLORS, ROAST_LEVELS, SPECIES_FLAG,
 } from "../lib/constants";
 
 // ─── ProcessMark — a map-legend square + the method, set in label caps ──────
@@ -112,10 +112,9 @@ export function RoastSpectrumFilter({ range, onPick, onClear }) {
 }
 
 // ─── SectionHead — numbered section opener used by every view ────────────────
-export function SectionHead({ index, title, dek, aside, variant = "" }) {
+export function SectionHead({ title, dek, aside, variant = "" }) {
   return (
     <header className={`section-head ${variant}`}>
-      <div className="section-head__num" aria-hidden="true">{ROMAN[index]}.</div>
       <div className="section-head__main">
         <h2 className="section-head__title">{title}</h2>
         {dek && <p className="section-head__dek">{dek}</p>}
