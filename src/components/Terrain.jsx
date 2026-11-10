@@ -16,18 +16,16 @@ export function TerrainContours({ width, height, pad, className = "" }) {
   );
 }
 
-const SUM = (c) => c.scores.reduce((s, v) => s + v, 0);
-
 // ─── HeroTerrain — the cover illustration ────────────────────────────────────
-// Every origin is a summit, placed by PCA of its six scores; spot height is
-// its total score. Labels are buttons into each origin's dossier.
+// Every origin is a summit, placed by PCA of its six scores.
+// Labels are buttons into each origin's dossier.
 export function HeroTerrain({ width = 1000, height = 640, pad = { x: 80, y: 70 }, labelled = true, onSelect }) {
   const terrain = useMemo(() => buildTerrain(width, height, { pad }), [width, height, pad]);
   const labels = useMemo(() => coffees.map((c) => pcaLabelText(c.name).toUpperCase()), []);
   const positions = useMemo(
     () => computeLabelPositions(
       terrain.peaks.map((p) => ({ cx: p.x, cy: p.y })),
-      labels.map((l) => `${l}   `), // room for the spot height
+      labels,
       { charW: 6.1, textH: 11, dotR: 8 },
     ),
     [terrain, labels],
@@ -61,7 +59,6 @@ export function HeroTerrain({ width = 1000, height = 640, pad = { x: 80, y: 70 }
                 <circle cx={p.x} cy={p.y} r={16} fill="transparent" />
                 <text x={pos.x} y={pos.y} textAnchor={pos.anchor} className="summit__label">
                   {labels[i]}
-                  <tspan className="summit__height" dx="4">{SUM(coffee)}</tspan>
                 </text>
               </>
             )}

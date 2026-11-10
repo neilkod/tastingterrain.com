@@ -85,7 +85,7 @@ function Hero({ onMethodology, onSelect }) {
           ? <HeroTerrain width={640} height={460} pad={{ x: 40, y: 40 }} labelled={false} />
           : <HeroTerrain width={1000} height={640} pad={{ x: 90, y: 70 }} onSelect={onSelect} />}
         <figcaption className="caption">
-          Closer peaks taste alike. Number = total score.
+          Closer peaks taste alike.
         </figcaption>
       </figure>
     </section>

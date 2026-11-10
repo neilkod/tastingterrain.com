@@ -350,7 +350,6 @@ abbr[title] { text-decoration: none; }
   stroke-linejoin: round;
   transition: fill var(--dur-fast);
 }
-.summit__height { font-weight: 400; fill: var(--ink-mute); letter-spacing: 0.02em; }
 .summit:hover .summit__label, .summit:focus-visible .summit__label { fill: var(--rust); }
 .summit:hover .summit__mark, .summit:focus-visible .summit__mark { fill: var(--rust); }
 
