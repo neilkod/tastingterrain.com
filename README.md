@@ -125,8 +125,9 @@ Scores and tasting notes were derived from a synthesis of:
 ## Tech stack
 
 - **React 19** + **Vite 8** — component UI and bundler
-- **No CSS framework** — all styles are inline React style objects
-- **No charting library** — radar charts and scatter plots are hand-drawn SVG
+- **No CSS framework** — design tokens in `src/styles/tokens.css`, styles in `src/styles/app.css` (see `docs/REDESIGN.md`)
+- **Type** — Gloock, Newsreader and Archivo via Google Fonts
+- **No charting library** — radar charts, scatter plots and the contour "flavor terrain" (marching squares over the PCA layout, `src/lib/terrain.js`) are hand-drawn SVG
 - **PCA implementation** — covariance matrix + power iteration, ~30 lines of plain JS, computed once at module load
 - **Static deployment** — no server, no database; all data lives in `src/coffeeData.js`
 - **Vercel** — auto-deploys on push to `main`
